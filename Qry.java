@@ -258,7 +258,7 @@ public abstract class Qry {
       Qry q_0 = this.args.get (0);
 
       if (! q_0.docIteratorHasMatch (r)) {
-	return false;
+    	  return false;
       }
 
       int docid_0 = q_0.docIteratorGetMatch ();
@@ -269,25 +269,25 @@ public abstract class Qry {
       matchFound = true;
 
       for (int i=1; i<this.args.size(); i++) {
-	Qry q_i = this.args.get(i);
+    	  Qry q_i = this.args.get(i);
 
-	q_i.docIteratorAdvanceTo (docid_0);
+    	  q_i.docIteratorAdvanceTo (docid_0);
 
-	if (! q_i.docIteratorHasMatch (r)) {	// If any argument is exhausted
-	  return false;				// there are no more matches.
-	}
+    	  if (! q_i.docIteratorHasMatch (r)) {	// If any argument is exhausted
+    		  return false;				// there are no more matches.
+    	  }
 
-	int docid_i = q_i.docIteratorGetMatch ();
+    	  int docid_i = q_i.docIteratorGetMatch ();
 
-	if (docid_0 != docid_i) {	// docid_0 can't match.  Try again.
-	  q_0.docIteratorAdvanceTo (docid_i);
-	  matchFound = false;
-	  break;
-	}
+    	  if (docid_0 != docid_i) {	// docid_0 can't match.  Try again.
+    		  q_0.docIteratorAdvanceTo (docid_i);
+    		  matchFound = false;
+    		  break;
+    	  }
       }
 
       if (matchFound) {
-        docIteratorSetMatchCache (docid_0);
+    	  docIteratorSetMatchCache (docid_0);
       }
     }
 

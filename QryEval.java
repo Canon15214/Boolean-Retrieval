@@ -63,7 +63,6 @@ public class QryEval {
   private static Map<String, String> parameters;
   private static File out;
 
-
   //  --------------- Methods ---------------------------------------
 
   /**
@@ -157,7 +156,7 @@ public class QryEval {
     StringTokenizer tokens = new StringTokenizer(qString, "\t\n\r ,()", true);
     String token = null;
 
-    //  This is a simple, stack-based parser.  These variables record
+    //  This is a simple, stack-based parser. These variables record
     //  the parser's state.
     
     Qry currentOp = null;
@@ -168,7 +167,6 @@ public class QryEval {
     //  Each pass of the loop processes one token. The query operator
     //  on the top of the opStack is also stored in currentOp to
     //  make the code more readable.
-
     while (tokens.hasMoreTokens()) {
 
       token = tokens.nextToken();
@@ -187,13 +185,13 @@ public class QryEval {
         if (opStack.empty())
           break;
 
-	// Not done yet.  Add the current operator as an argument to
+	    // Not done yet.  Add the current operator as an argument to
         // the higher-level operator, and shift processing back to the
         // higher-level operator.
 
         Qry arg = currentOp;
         currentOp = opStack.peek();
-	currentOp.appendArg(arg);
+	    currentOp.appendArg(arg);
 
       } else if (token.equalsIgnoreCase("#or")) {
         currentOp = new QrySopOr ();
