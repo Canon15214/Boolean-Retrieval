@@ -59,6 +59,9 @@ public class QryEval {
     new EnglishAnalyzerConfigurable(Version.LUCENE_43);
   private static final String[] TEXT_FIELDS =
     { "body", "title", "url", "inlink" };
+  private static final int topKResults = 100;
+  private static Map<String, String> parameters;
+  private static File out;
 
 
   //  --------------- Methods ---------------------------------------
@@ -85,7 +88,7 @@ public class QryEval {
       throw new IllegalArgumentException (USAGE);
     }
 
-    Map<String, String> parameters = readParameterFile (args[0]);
+    parameters = readParameterFile (args[0]);
 
     //  Configure query lexical processing to match index lexical
     //  processing.  Initialize the index and retrieval model.
@@ -98,7 +101,8 @@ public class QryEval {
     RetrievalModel model = initializeRetrievalModel (parameters);
 
     //  Perform experiments.
-    
+	out = new File(parameters.get("trecEvalOutputPath"));
+	out.createNewFile();
     processQueryFile(parameters.get("queryFilePath"), model);
 
     //  Clean up.
@@ -339,7 +343,7 @@ public class QryEval {
       Qry q_0 = q.args.get(0);
 
       if (q_0 instanceof QrySop) {
-	q = q_0;
+    	  q = q_0;
       }
     }
 
@@ -398,7 +402,7 @@ public class QryEval {
             ("Syntax error:  Missing ':' in query line.");
         }
 
-        printMemoryUsage(false);
+        //printMemoryUsage(false);
 
         String qid = qLine.substring(0, d);
         String query = qLine.substring(d + 1);
@@ -437,15 +441,19 @@ public class QryEval {
    */
   static void printResults(String queryName, ScoreList result) throws IOException {
 
-    System.out.println(queryName + ":  ");
+
+	BufferedWriter bw = new BufferedWriter(new FileWriter(out, true));
+    //System.out.println(queryName + ":  ");
     if (result.size() < 1) {
-      System.out.println("\tNo results.");
+      bw.write("\tNo results.\n");
     } else {
-      for (int i = 0; i < result.size(); i++) {
-        System.out.println("\t" + i + ":  " + Idx.getExternalDocid(result.getDocid(i)) + ", "
-            + result.getDocidScore(i));
+      for (int i = 1; i <= topKResults; i++) {
+        bw.write(queryName + "\tQ0\t" + Idx.getExternalDocid(result.getDocid(i)) + "\t"
+            + i + "\t" + result.getDocidScore(i) + "\trun-1\n");
       }
     }
+    bw.write("\n");
+    bw.close();
   }
 
   /**
