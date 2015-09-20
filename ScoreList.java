@@ -13,23 +13,23 @@ public class ScoreList {
   //  A utility class to create a <internalDocid, externalDocid, score>
   //  object.
 
-  private class ScoreListEntry {
-    private int docid;
-    private String externalId;
-    private double score;
+	private class ScoreListEntry {
+		private int docid;
+		private String externalId;
+		private double score;
 
-    private ScoreListEntry(int internalDocid, double score) {
-      this.docid = internalDocid;
-      this.score = score;
+		private ScoreListEntry(int internalDocid, double score) {
+			this.docid = internalDocid;
+			this.score = score;
 
-      try {
-	this.externalId = Idx.getExternalDocid (this.docid);
-      }
-      catch (IOException ex){
-	ex.printStackTrace();
-      }
-    }
-  }
+			try {
+				this.externalId = Idx.getExternalDocid (this.docid);
+			}
+			catch (IOException ex){
+				ex.printStackTrace();
+			}
+		}
+	}
 
   /**
    *  A list of document ids and scores. 
@@ -82,7 +82,7 @@ public class ScoreList {
 
   /*
    *  Compare two ScoreListEntry objects.  Sort by score, then
-   *  internal docid.
+   *  external docid.
    */
   public class ScoreListComparator implements Comparator<ScoreListEntry> {
 
@@ -94,13 +94,16 @@ public class ScoreList {
 	if (s1.score < s2.score)
 	  return 1;
 	else
-	  if (s1.docid > s2.docid)
-	    return 1;
+		/*
+		if (s1.externalId.compareTo(s2.externalId) > 0)
+			return 1;
 	  else
-	    if (s1.docid < s2.docid)
-	      return -1;
+	    if (s1.externalId.compareTo(s2.externalId) < 0)
+	    	return -1;
 	    else
-	      return 0;
+	    	return 0;
+	    */
+		return s1.externalId.compareTo(s2.externalId);
     }
   }
 

@@ -125,6 +125,9 @@ public class QryEval {
     if (modelString.equals("unrankedboolean")) {
       model = new RetrievalModelUnrankedBoolean();
     }
+    else if (modelString.equals("rankedboolean")) {
+        model = new RetrievalModelRankedBoolean();
+    }
     else {
       throw new IllegalArgumentException
         ("Unknown retrieval model " + parameters.get("retrievalAlgorithm"));
@@ -149,6 +152,8 @@ public class QryEval {
     //  that the query will return document ids and scores.
 
     String defaultOp = model.defaultQrySopName ();
+    
+    // this is bad
     qString = defaultOp + "(" + qString + ")";
 
     //  Simple query tokenization.  Terms like "near-death" are handled later.
@@ -197,6 +202,10 @@ public class QryEval {
         currentOp = new QrySopOr ();
         currentOp.setDisplayName (token);
         opStack.push(currentOp);
+      } else if (token.equalsIgnoreCase("#and")) {
+          currentOp = new QrySopAnd ();
+          currentOp.setDisplayName (token);
+          opStack.push(currentOp);
       } else if (token.equalsIgnoreCase("#syn")) {
         currentOp = new QryIopSyn();
         currentOp.setDisplayName (token);
@@ -363,6 +372,7 @@ public class QryEval {
         while (q.docIteratorHasMatch (model)) {
           int docid = q.docIteratorGetMatch ();
           double score = ((QrySop) q).getScore (model);
+          //System.out.println();
           r.add (docid, score);
           q.docIteratorAdvancePast (docid);
         }
@@ -412,6 +422,7 @@ public class QryEval {
         r = processQuery(query, model);
 
         if (r != null) {
+          r.sort();
           printResults(qid, r);
           System.out.println();
         }
@@ -423,7 +434,7 @@ public class QryEval {
     }
   }
 
-  /**
+/**
    * Print the query results.
    * 
    * THIS IS NOT THE CORRECT OUTPUT FORMAT. YOU MUST CHANGE THIS METHOD SO
@@ -439,18 +450,18 @@ public class QryEval {
    */
   static void printResults(String queryName, ScoreList result) throws IOException {
 
-
 	BufferedWriter bw = new BufferedWriter(new FileWriter(out, true));
     //System.out.println(queryName + ":  ");
     if (result.size() < 1) {
       bw.write("\tNo results.\n");
     } else {
-      for (int i = 1; i <= topKResults; i++) {
+      int numResults = Math.min(topKResults, result.size());
+      for (int i = 0; i < numResults; i++) {
         bw.write(queryName + "\tQ0\t" + Idx.getExternalDocid(result.getDocid(i)) + "\t"
-            + i + "\t" + result.getDocidScore(i) + "\trun-1\n");
+            + (i+1) + "\t" + result.getDocidScore(i) + "\trun-1\n");
       }
     }
-    bw.write("\n");
+    //bw.write("\n");
     bw.close();
   }
 

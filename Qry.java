@@ -75,7 +75,7 @@ public abstract class Qry {
    */
    public static final int INVALID_DOCID = Integer.MIN_VALUE;
 
-  /**
+   /**
    *  The arguments to this query operator.  The TERM query operator
    *  has 0 arguments.  The SCORE query operator has 1 argument.  All
    *  other query operators have 1 or more arguments (e.g., #SYN (blue aqua)).
@@ -253,7 +253,7 @@ public abstract class Qry {
 
     while (! matchFound) {
 
-      // Get the docid of the first query argument.
+    	// Get the docid of the first query argument.
       
       Qry q_0 = this.args.get (0);
 
