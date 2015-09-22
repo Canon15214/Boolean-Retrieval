@@ -43,11 +43,21 @@ public class QrySopAnd extends QrySop {
    *  @throws IOException Error accessing the Lucene index
    */
   private double getScoreUnrankedBoolean (RetrievalModel r) throws IOException {
-    if (! this.docIteratorHasMatchCache()) {
-      return 0.0;
-    } else {
-      return 1.0;
+    double score = Double.MAX_VALUE;
+    if (this.docIteratorHasMatchCache()) {
+      int docId = this.docIteratorGetMatch();
+      // #AND operator combines the score with MIN
+      for(Qry arg : this.args){
+    	  if(!arg.docIteratorHasMatch(r) || docId != arg.docIteratorGetMatch()){
+    		score = 0.0;  
+    		break;
+    	  }
+    	  double argScore = ((QrySop) arg).getScore(r);
+    	  if(argScore < score)
+    		  score = argScore;
+      }
     }
+    return score > 0.0 ? 1.0 : 0.0;
   }
   
   /**

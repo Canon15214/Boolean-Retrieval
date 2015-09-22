@@ -25,7 +25,7 @@ public class QrySopOr extends QrySop {
    *  @throws IOException Error accessing the Lucene index
    */
   public double getScore (RetrievalModel r) throws IOException {
-
+		//System.out.println("or");
     if (r instanceof RetrievalModelUnrankedBoolean) {
       return this.getScoreUnrankedBoolean (r);
     } else if (r instanceof RetrievalModelRankedBoolean) {
@@ -43,11 +43,26 @@ public class QrySopOr extends QrySop {
    *  @throws IOException Error accessing the Lucene index
    */
   private double getScoreUnrankedBoolean (RetrievalModel r) throws IOException {
+	/*
     if (! this.docIteratorHasMatchCache()) {
       return 0.0;
     } else {
       return 1.0;
+    }*/
+    
+	double score = 0.0;
+    if (this.docIteratorHasMatchCache()) {
+      int docId = this.docIteratorGetMatch();
+      // #OR operator combines the score with MAX	
+      for(Qry arg : this.args){    	  
+    	  if(arg.docIteratorHasMatch(r) && docId == arg.docIteratorGetMatch()){
+    		  double argScore = ((QrySop) arg).getScore(r);
+    		  if(argScore > score)
+    			  score = argScore;
+    	  }
+      }
     }
+    return score > 0.0 ? 1.0 : 0.0;
   }
   
   /**
@@ -61,7 +76,7 @@ public class QrySopOr extends QrySop {
     if (this.docIteratorHasMatchCache()) {
       int docId = this.docIteratorGetMatch();
       // #OR operator combines the score with MAX	
-      for(Qry arg : this.args){
+      for(Qry arg : this.args){    	  
     	  if(arg.docIteratorHasMatch(r) && docId == arg.docIteratorGetMatch()){
     		  double argScore = ((QrySop) arg).getScore(r);
     		  if(argScore > score)

@@ -56,13 +56,13 @@ public class QryIopSyn extends QryIop {
       List<Integer> positions = new ArrayList<Integer>();
 
       for (Qry q_i: this.args) {
-        if (q_i.docIteratorHasMatch (null) &&
-            (q_i.docIteratorGetMatch () == minDocid)) {
-          Vector<Integer> locations_i =
-            ((QryIop) q_i).docIteratorGetMatchPosting().positions;
-	  positions.addAll (locations_i);
-          q_i.docIteratorAdvancePast (minDocid);
-	}
+    	  if (q_i.docIteratorHasMatch (null) &&
+    			  (q_i.docIteratorGetMatch () == minDocid)) {
+    		  Vector<Integer> locations_i =
+    				  ((QryIop) q_i).docIteratorGetMatchPosting().positions;
+    		  positions.addAll (locations_i);
+    		  q_i.docIteratorAdvancePast (minDocid);
+    	  }
       }
 
       Collections.sort (positions);

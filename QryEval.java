@@ -155,6 +155,7 @@ public class QryEval {
     
     // this is bad
     qString = defaultOp + "(" + qString + ")";
+    //System.out.println(qString);
 
     //  Simple query tokenization.  Terms like "near-death" are handled later.
 
@@ -175,7 +176,7 @@ public class QryEval {
     while (tokens.hasMoreTokens()) {
 
       token = tokens.nextToken();
-
+      //System.out.println(token);
       if (token.matches("[ ,(\t\n\r]")) {
         continue;
       } else if (token.equals(")")) {	// Finish current query op.
@@ -216,11 +217,7 @@ public class QryEval {
           currentOp = new QryIopNear(distance);
           currentOp.setDisplayName (token);
           opStack.push(currentOp);
-      } else if (token.equalsIgnoreCase("#score")) {
-          currentOp = new QrySopScore();
-          currentOp.setDisplayName (token);
-          opStack.push(currentOp);
-      } else {
+      }	 else {
 
         //  Split the token into a term and a field.
 
@@ -252,18 +249,18 @@ public class QryEval {
 
         for (int j = 0; j < t.length; j++) {
 
-          Qry termOp = new QryIopTerm(t [j], field);
+        	Qry termOp = new QryIopTerm(t [j], field);
 
-	  currentOp.appendArg (termOp);
-	}
+        	currentOp.appendArg (termOp);
+        }
       }
     }
 
     //  A broken structured query can leave unprocessed tokens on the opStack,
 
     if (tokens.hasMoreTokens()) {
-      throw new IllegalArgumentException
-        ("Error:  Query syntax is incorrect.  " + qString);
+    	throw new IllegalArgumentException
+    	("Error:  Query syntax is incorrect.  " + qString);
     }
 
     return currentOp;
@@ -350,6 +347,7 @@ public class QryEval {
     throws IOException {
 
     Qry q = parseQuery(qString, model);
+    //System.out.println(q);
 
     // Optimize the query.  Remove query operators (except SCORE
     // operators) that have only 1 argument. This improves efficiency
