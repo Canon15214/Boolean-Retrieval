@@ -39,7 +39,7 @@ public abstract class QryIop extends Qry {
   /**
    *  An invalid index for docIterator and locIterator.
    */
-  private static final int INVALID_ITERATOR_INDEX = -1;
+  protected static final int INVALID_ITERATOR_INDEX = -1;
 
   /**
    *  The document field that the query operator applies to; this is

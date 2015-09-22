@@ -51,11 +51,24 @@ public class QrySopScore extends QrySop {
    *  @throws IOException Error accessing the Lucene index
    */
   public double getScoreUnrankedBoolean (RetrievalModel r) throws IOException {
-    if (! this.docIteratorHasMatchCache()) {
-      return 0.0;
-    } else {
-      return 1.0;
-    }
+      Qry q = this.args.get(0);
+	  if(q instanceof QrySop){
+		  System.out.println("this");
+		  if (! this.docIteratorHasMatchCache()) {
+			  return 0.0;
+		  } else {
+			  return 1.0;
+		  }
+      }
+	  else{
+		  System.out.println("that");
+		  double count = (double) ((QryIop) q).docIteratorGetMatchPosting().tf;
+		  if (count == 0.0) {
+			  return 0.0;
+		  } else {
+			  return 1.0;
+		  }
+	  }
   }
   
   /**

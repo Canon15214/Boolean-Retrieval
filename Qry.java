@@ -82,7 +82,7 @@ public abstract class Qry {
    *  Some query operators have parameters (e.g., #NEAR/8) or weights
    *  (e.g., #WSUM (0.4 blue 0.6 skies) that are not considered arguments.
    */
-  protected ArrayList<Qry> args = new ArrayList<Qry>();
+   protected ArrayList<Qry> args = new ArrayList<Qry>();
 
   /**
    *  The string to use when the query is displayed.  Some query

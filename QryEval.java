@@ -210,6 +210,16 @@ public class QryEval {
         currentOp = new QryIopSyn();
         currentOp.setDisplayName (token);
         opStack.push(currentOp);
+      } else if (token.regionMatches(true, 0, "#near", 0, 5)) {
+    	  String[] subTokens = token.split("/");
+    	  int distance = Integer.parseInt(subTokens[1]);
+          currentOp = new QryIopNear(distance);
+          currentOp.setDisplayName (token);
+          opStack.push(currentOp);
+      } else if (token.equalsIgnoreCase("#score")) {
+          currentOp = new QrySopScore();
+          currentOp.setDisplayName (token);
+          opStack.push(currentOp);
       } else {
 
         //  Split the token into a term and a field.
@@ -248,7 +258,6 @@ public class QryEval {
 	}
       }
     }
-
 
     //  A broken structured query can leave unprocessed tokens on the opStack,
 
