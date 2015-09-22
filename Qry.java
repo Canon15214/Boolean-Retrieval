@@ -68,361 +68,361 @@ import java.util.*;
  */
 public abstract class Qry {
 
-  //  --------------- Constants and variables ---------------------
+	//  --------------- Constants and variables ---------------------
 
-  /**
-   *  An invalid internal document id.
-   */
-   public static final int INVALID_DOCID = Integer.MIN_VALUE;
+	/**
+	 *  An invalid internal document id.
+	 */
+	public static final int INVALID_DOCID = Integer.MIN_VALUE;
 
-   /**
-   *  The arguments to this query operator.  The TERM query operator
-   *  has 0 arguments.  The SCORE query operator has 1 argument.  All
-   *  other query operators have 1 or more arguments (e.g., #SYN (blue aqua)).
-   *  Some query operators have parameters (e.g., #NEAR/8) or weights
-   *  (e.g., #WSUM (0.4 blue 0.6 skies) that are not considered arguments.
-   */
-   protected ArrayList<Qry> args = new ArrayList<Qry>();
+	/**
+	 *  The arguments to this query operator.  The TERM query operator
+	 *  has 0 arguments.  The SCORE query operator has 1 argument.  All
+	 *  other query operators have 1 or more arguments (e.g., #SYN (blue aqua)).
+	 *  Some query operators have parameters (e.g., #NEAR/8) or weights
+	 *  (e.g., #WSUM (0.4 blue 0.6 skies) that are not considered arguments.
+	 */
+	protected ArrayList<Qry> args = new ArrayList<Qry>();
 
-  /**
-   *  The string to use when the query is displayed.  Some query
-   *  operators (e.g., QrySopAnd) may be represented by more than
-   *  one name (e.g., #COMBINE, #AND).
-   */
-  private String displayName = new String ("Unnamed");
+	/**
+	 *  The string to use when the query is displayed.  Some query
+	 *  operators (e.g., QrySopAnd) may be represented by more than
+	 *  one name (e.g., #COMBINE, #AND).
+	 */
+	private String displayName = new String ("Unnamed");
 
-  /**
-   *  docIteratorHasMatch caches the matching docid so that
-   *  docIteratorGetMatch and getScore don't have to recompute it.
-   */
-  private int docIteratorMatchCache = Qry.INVALID_DOCID;
-  
-  private boolean matchStored = false;	// Operators can cache matches
-  private int matchingDocid;
+	/**
+	 *  docIteratorHasMatch caches the matching docid so that
+	 *  docIteratorGetMatch and getScore don't have to recompute it.
+	 */
+	private int docIteratorMatchCache = Qry.INVALID_DOCID;
 
-  //  --------------- Methods ---------------------------------------
+	private boolean matchStored = false;	// Operators can cache matches
+	private int matchingDocid;
 
-  /**
-   *  Append an argument to the list of query operator arguments.  
-   *  @param q The query argument (query operator) to append.
-   *  @throws IllegalArgumentException q is an invalid argument
-   */
-  public void appendArg(Qry q) throws IllegalArgumentException {
+	//  --------------- Methods ---------------------------------------
 
-    //  The query parser and query operator type system are too simple
-    //  to detect some kinds of query syntax errors.  appendArg does
-    //  additional syntax checking while creating the query tree.  It
-    //  also inserts SCORE operators between QrySop operators and QryIop
-    //  arguments, and propagates field information from QryIop
-    //  children to parents.  Basically, it creates a well-formed
-    //  query tree.
-    
-    if (this instanceof QryIopTerm) {
-      throw new IllegalArgumentException
-        ("The TERM operator has no arguments.");
-    }
+	/**
+	 *  Append an argument to the list of query operator arguments.  
+	 *  @param q The query argument (query operator) to append.
+	 *  @throws IllegalArgumentException q is an invalid argument
+	 */
+	public void appendArg(Qry q) throws IllegalArgumentException {
 
-    //  SCORE operators can have only a single argument of type QryIop.
-    
-    if (this instanceof QrySopScore) {
-      if (this.args.size () > 0) {
-        throw new IllegalArgumentException
-          ("Score operators can have only one argument");
-      } else if (! (q instanceof QryIop)) {
-        throw new IllegalArgumentException
-          ("The argument to a SCORE operator must be of type QryIop.");
-      } else {
-        this.args.add(q);
-        return;
-      }
-    }
+		//  The query parser and query operator type system are too simple
+		//  to detect some kinds of query syntax errors.  appendArg does
+		//  additional syntax checking while creating the query tree.  It
+		//  also inserts SCORE operators between QrySop operators and QryIop
+		//  arguments, and propagates field information from QryIop
+		//  children to parents.  Basically, it creates a well-formed
+		//  query tree.
 
-    //  Check whether it is necessary to insert an implied SCORE
-    //  operator between a QrySop operator and a QryIop argument.
+		if (this instanceof QryIopTerm) {
+			throw new IllegalArgumentException
+			("The TERM operator has no arguments.");
+		}
 
-    if ((this instanceof QrySop) && (q instanceof QryIop)) {
-      Qry impliedOp = new QrySopScore ();
-      impliedOp.setDisplayName ("#SCORE");
-      impliedOp.appendArg (q);
-      this.args.add (impliedOp);
-      return;
-    }
+		//  SCORE operators can have only a single argument of type QryIop.
 
-    //  QryIop operators must have QryIop arguments in the same field.
-    
-    if ((this instanceof QryIop) && (q instanceof QryIop)) {
-      
-      if (this.args.size() == 0) {
-        ((QryIop) this).field = new String (((QryIop) q).getField());
-      } else {
-        if (! ((QryIop) this).field.equals (((QryIop) q).getField())) {
-          throw new IllegalArgumentException
-            ("Arguments to QryIop operators must be in the same field.");
-        }
-      }
+		if (this instanceof QrySopScore) {
+			if (this.args.size () > 0) {
+				throw new IllegalArgumentException
+				("Score operators can have only one argument");
+			} else if (! (q instanceof QryIop)) {
+				throw new IllegalArgumentException
+				("The argument to a SCORE operator must be of type QryIop.");
+			} else {
+				this.args.add(q);
+				return;
+			}
+		}
 
-      this.args.add(q);
-      return;
-    }
+		//  Check whether it is necessary to insert an implied SCORE
+		//  operator between a QrySop operator and a QryIop argument.
+
+		if ((this instanceof QrySop) && (q instanceof QryIop)) {
+			Qry impliedOp = new QrySopScore ();
+			impliedOp.setDisplayName ("#SCORE");
+			impliedOp.appendArg (q);
+			this.args.add (impliedOp);
+			return;
+		}
+
+		//  QryIop operators must have QryIop arguments in the same field.
+
+		if ((this instanceof QryIop) && (q instanceof QryIop)) {
+
+			if (this.args.size() == 0) {
+				((QryIop) this).field = new String (((QryIop) q).getField());
+			} else {
+				if (! ((QryIop) this).field.equals (((QryIop) q).getField())) {
+					throw new IllegalArgumentException
+					("Arguments to QryIop operators must be in the same field.");
+				}
+			}
+
+			this.args.add(q);
+			return;
+		}
 
 
-    //  QrySop operators and their arguments must be of the same type.
+		//  QrySop operators and their arguments must be of the same type.
 
-    if ((this instanceof QrySop) && (q instanceof QrySop)) {
-      this.args.add(q);
-      return;
-    }
+		if ((this instanceof QrySop) && (q instanceof QrySop)) {
+			this.args.add(q);
+			return;
+		}
 
-    throw new IllegalArgumentException
-      ("Objects of type " + 
-       q.getClass().getName() +
-       " cannot be an argument to a query operator of type " +
-       this.getClass().getName());
-  }
+		throw new IllegalArgumentException
+		("Objects of type " + 
+				q.getClass().getName() +
+				" cannot be an argument to a query operator of type " +
+				this.getClass().getName());
+	}
 
-  /**
-   *  Advance the internal document iterator beyond the specified
-   *  document.
-   *  @param docid An internal document id.
-   */
-  public void docIteratorAdvancePast (int docid) {
+	/**
+	 *  Advance the internal document iterator beyond the specified
+	 *  document.
+	 *  @param docid An internal document id.
+	 */
+	public void docIteratorAdvancePast (int docid) {
 
-      for (Qry q_i: this.args) {
-        q_i.docIteratorAdvancePast (docid);
-      }
+		for (Qry q_i: this.args) {
+			q_i.docIteratorAdvancePast (docid);
+		}
 
-    this.docIteratorClearMatchCache ();
-    }
+		this.docIteratorClearMatchCache ();
+	}
 
-  /**
-   *  Advance the internal document iterator to the specified
-   *  document, or beyond if it doesn't.
-   *  @param docid An internal document id.
-   */
-  public void docIteratorAdvanceTo (int docid) {
-    
-    for (Qry q_i: this.args) {
-      q_i.docIteratorAdvanceTo (docid);
-    }
-    
-    this.docIteratorClearMatchCache ();
-  }
+	/**
+	 *  Advance the internal document iterator to the specified
+	 *  document, or beyond if it doesn't.
+	 *  @param docid An internal document id.
+	 */
+	public void docIteratorAdvanceTo (int docid) {
 
-  /**
-   *  Clear the docIterator's matching docid cache.  The cache should
-   *  be cleared whenever a docIterator is advanced.
-   */
-  private void docIteratorClearMatchCache () {
-    this.docIteratorMatchCache = Qry.INVALID_DOCID;
-  }
+		for (Qry q_i: this.args) {
+			q_i.docIteratorAdvanceTo (docid);
+		}
 
-  /**
-   *  Return the id of the document that the iterator points to now.
-   *  Use docIteratorHasMatch to determine whether the iterator
-   *  currently points to a document.  If the iterator doesn't point
-   *  to a document, an invalid document id is returned.
-   *  @return The internal id of the current document.
-   */
-  public int docIteratorGetMatch () {
-    if (this.docIteratorHasMatchCache ()) {
-      return this.docIteratorMatchCache;
-    } else {
-      throw new IllegalStateException("No matching docid was cached.");
-    }
-  }
+		this.docIteratorClearMatchCache ();
+	}
 
-  /**
-   *  Indicates whether the query has a match.
-   *  @param r The retrieval model that determines what is a match
-   *  @return True if the query matches, otherwise false.
-   */
-  public abstract boolean docIteratorHasMatch (RetrievalModel r);
+	/**
+	 *  Clear the docIterator's matching docid cache.  The cache should
+	 *  be cleared whenever a docIterator is advanced.
+	 */
+	private void docIteratorClearMatchCache () {
+		this.docIteratorMatchCache = Qry.INVALID_DOCID;
+	}
 
-  /**
-   *  An instantiation of docIteratorHasMatch that is true if the
-   *  query has a document that matches all query arguments; some
-   *  subclasses may choose to use this implementation.  
-   *  @param r The retrieval model that determines what is a match
-   *  @return True if the query matches, otherwise false.
-   */
-  protected boolean docIteratorHasMatchAll (RetrievalModel r) {
+	/**
+	 *  Return the id of the document that the iterator points to now.
+	 *  Use docIteratorHasMatch to determine whether the iterator
+	 *  currently points to a document.  If the iterator doesn't point
+	 *  to a document, an invalid document id is returned.
+	 *  @return The internal id of the current document.
+	 */
+	public int docIteratorGetMatch () {
+		if (this.docIteratorHasMatchCache ()) {
+			return this.docIteratorMatchCache;
+		} else {
+			throw new IllegalStateException("No matching docid was cached.");
+		}
+	}
 
-    boolean matchFound = false;
+	/**
+	 *  Indicates whether the query has a match.
+	 *  @param r The retrieval model that determines what is a match
+	 *  @return True if the query matches, otherwise false.
+	 */
+	public abstract boolean docIteratorHasMatch (RetrievalModel r);
 
-    // Keep trying until a match is found or no match is possible.
+	/**
+	 *  An instantiation of docIteratorHasMatch that is true if the
+	 *  query has a document that matches all query arguments; some
+	 *  subclasses may choose to use this implementation.  
+	 *  @param r The retrieval model that determines what is a match
+	 *  @return True if the query matches, otherwise false.
+	 */
+	protected boolean docIteratorHasMatchAll (RetrievalModel r) {
 
-    while (! matchFound) {
+		boolean matchFound = false;
 
-    	// Get the docid of the first query argument.
-      
-      Qry q_0 = this.args.get (0);
+		// Keep trying until a match is found or no match is possible.
 
-      if (! q_0.docIteratorHasMatch (r)) {
-    	  return false;
-      }
+		while (! matchFound) {
 
-      int docid_0 = q_0.docIteratorGetMatch ();
+			// Get the docid of the first query argument.
 
-      // Other query arguments must match the docid of the first query
-      // argument.
-      
-      matchFound = true;
+			Qry q_0 = this.args.get (0);
 
-      for (int i=1; i<this.args.size(); i++) {
-    	  Qry q_i = this.args.get(i);
+			if (! q_0.docIteratorHasMatch (r)) {
+				return false;
+			}
 
-    	  q_i.docIteratorAdvanceTo (docid_0);
+			int docid_0 = q_0.docIteratorGetMatch ();
 
-    	  if (! q_i.docIteratorHasMatch (r)) {	// If any argument is exhausted
-    		  return false;				// there are no more matches.
-    	  }
+			// Other query arguments must match the docid of the first query
+			// argument.
 
-    	  int docid_i = q_i.docIteratorGetMatch ();
+			matchFound = true;
 
-    	  if (docid_0 != docid_i) {	// docid_0 can't match.  Try again.
-    		  q_0.docIteratorAdvanceTo (docid_i);
-    		  matchFound = false;
-    		  break;
-    	  }
-      }
+			for (int i=1; i<this.args.size(); i++) {
+				Qry q_i = this.args.get(i);
 
-      if (matchFound) {
-    	  docIteratorSetMatchCache (docid_0);
-      }
-    }
+				q_i.docIteratorAdvanceTo (docid_0);
 
-    return true;
-  }
+				if (! q_i.docIteratorHasMatch (r)) {	// If any argument is exhausted
+					return false;				// there are no more matches.
+				}
 
-  /**
-   *  An instantiation of docIteratorHasMatch that is true if the
-   *  query has a document that matches the first query argument;
-   *  some subclasses may choose to use this implementation.
-   *  @param r The retrieval model that determines what is a match
-   *  @return True if the query matches, otherwise false.
-   */
-  protected boolean docIteratorHasMatchFirst (RetrievalModel r) {
+				int docid_i = q_i.docIteratorGetMatch ();
 
-    Qry q_0 = this.args.get(0);
+				if (docid_0 != docid_i) {	// docid_0 can't match.  Try again.
+					q_0.docIteratorAdvanceTo (docid_i);
+					matchFound = false;
+					break;
+				}
+			}
 
-    if (q_0.docIteratorHasMatch (r)) {
-      int docid = q_0.docIteratorGetMatch ();
-      this.docIteratorSetMatchCache (docid);
-      return true;
-    } else {
-      return false;
-    }
-  }
+			if (matchFound) {
+				docIteratorSetMatchCache (docid_0);
+			}
+		}
 
-  /**
-   *  An instantiation of docIteratorHasMatch that is true if the
-   *  query has a document that matches at least one query argument;
-   *  the match is the smallest docid to match; some subclasses may
-   *  choose to use this implementation.
-   *  @param r The retrieval model that determines what is a match
-   *  @return True if the query matches, otherwise false.
-   */
-  protected boolean docIteratorHasMatchMin (RetrievalModel r) {
+		return true;
+	}
 
-    int minDocid = Qry.INVALID_DOCID;
+	/**
+	 *  An instantiation of docIteratorHasMatch that is true if the
+	 *  query has a document that matches the first query argument;
+	 *  some subclasses may choose to use this implementation.
+	 *  @param r The retrieval model that determines what is a match
+	 *  @return True if the query matches, otherwise false.
+	 */
+	protected boolean docIteratorHasMatchFirst (RetrievalModel r) {
 
-    for (int i=0; i<this.args.size(); i++) {
-      Qry q_i = this.args.get(i);
+		Qry q_0 = this.args.get(0);
 
-      if (q_i.docIteratorHasMatch (r)) {
-        int q_iDocid = q_i.docIteratorGetMatch ();
+		if (q_0.docIteratorHasMatch (r)) {
+			int docid = q_0.docIteratorGetMatch ();
+			this.docIteratorSetMatchCache (docid);
+			return true;
+		} else {
+			return false;
+		}
+	}
 
-        if ((minDocid > q_iDocid) ||
-            (minDocid == Qry.INVALID_DOCID)) {
-          minDocid = q_iDocid;
-        }
-      }
-    }
+	/**
+	 *  An instantiation of docIteratorHasMatch that is true if the
+	 *  query has a document that matches at least one query argument;
+	 *  the match is the smallest docid to match; some subclasses may
+	 *  choose to use this implementation.
+	 *  @param r The retrieval model that determines what is a match
+	 *  @return True if the query matches, otherwise false.
+	 */
+	protected boolean docIteratorHasMatchMin (RetrievalModel r) {
 
-    if (minDocid != Qry.INVALID_DOCID) {
-      docIteratorSetMatchCache (minDocid);
-      return true;
-    } else {
-      return false;
-    }
-  }
+		int minDocid = Qry.INVALID_DOCID;
 
-  /**
-   *  Return the status of the cache.
-   *  @return True if a match is cached, otherwise false.
-   */
-  protected boolean docIteratorHasMatchCache () {
-    return (this.docIteratorMatchCache != Qry.INVALID_DOCID);
-  }
+		for (int i=0; i<this.args.size(); i++) {
+			Qry q_i = this.args.get(i);
 
-  /**
-   *  Set the matching docid cache.
-   *  @param docid The internal document id to store in the cache.
-   */
-  private void docIteratorSetMatchCache (int docid) {
-    this.docIteratorMatchCache = docid;
-  }
+			if (q_i.docIteratorHasMatch (r)) {
+				int q_iDocid = q_i.docIteratorGetMatch ();
 
-  /**
-   *  Get the i'th query argument.  The main value of this method
-   *  is that it casts the argument to the correct type.
-   *  @param i The index of the query argument to return.
-   *  @return The query argument.
-   */
-  public QryIop getArg (int i) {
-    return ((QryIop) this.args.get(i));
-  }
+				if ((minDocid > q_iDocid) ||
+						(minDocid == Qry.INVALID_DOCID)) {
+					minDocid = q_iDocid;
+				}
+			}
+		}
 
-  /**
-   *  Every operator has a display name that can be used by
-   *  toString for debugging or other user feedback.  
-   *  @return The query operator's display name
-   */
-  public String getDisplayName () {
-    return this.displayName;
-  }
+		if (minDocid != Qry.INVALID_DOCID) {
+			docIteratorSetMatchCache (minDocid);
+			return true;
+		} else {
+			return false;
+		}
+	}
 
-  /**
-   *  Initialize the query operator (and its arguments), including any
-   *  internal iterators; this method must be called before iteration
-   *  can begin.
-   *  @param r A retrieval model that guides initialization
-   *  @throws IOException Error accessing the Lucene index.
-   */
-  public abstract void initialize(RetrievalModel r) throws IOException;
+	/**
+	 *  Return the status of the cache.
+	 *  @return True if a match is cached, otherwise false.
+	 */
+	protected boolean docIteratorHasMatchCache () {
+		return (this.docIteratorMatchCache != Qry.INVALID_DOCID);
+	}
 
-  /**
-   *  Removes an argument from the list of query operator arguments.
-   *  @param i The index of the query operator to remove.
-   */
-  public void removeArg (int i) {
-    this.args.remove(i);
-  };
+	/**
+	 *  Set the matching docid cache.
+	 *  @param docid The internal document id to store in the cache.
+	 */
+	private void docIteratorSetMatchCache (int docid) {
+		this.docIteratorMatchCache = docid;
+	}
 
-  /**
-   *  Every operator must have a display name that can be used by
-   *  toString for debugging or other user feedback.  
-   *  @param name The query operator's display name
-   */
-  public void setDisplayName (String name) {
-    this.displayName = new String (name);
-  }
+	/**
+	 *  Get the i'th query argument.  The main value of this method
+	 *  is that it casts the argument to the correct type.
+	 *  @param i The index of the query argument to return.
+	 *  @return The query argument.
+	 */
+	public QryIop getArg (int i) {
+		return ((QryIop) this.args.get(i));
+	}
 
-  /**
-   *  Get a string version of this query operator.  This is a generic
-   *  method that works for most query operators.  However, some query
-   *  operators (e.g., #NEAR/n or #WEIGHT) may need to override this
-   *  method with something more specific.
-   *  @return The string version of this query operator.
-   */
-  @Override public String toString(){
-    
-    String result = new String ();
+	/**
+	 *  Every operator has a display name that can be used by
+	 *  toString for debugging or other user feedback.  
+	 *  @return The query operator's display name
+	 */
+	public String getDisplayName () {
+		return this.displayName;
+	}
 
-    for (int i=0; i<this.args.size(); i++)
-      result += this.args.get(i) + " ";
+	/**
+	 *  Initialize the query operator (and its arguments), including any
+	 *  internal iterators; this method must be called before iteration
+	 *  can begin.
+	 *  @param r A retrieval model that guides initialization
+	 *  @throws IOException Error accessing the Lucene index.
+	 */
+	public abstract void initialize(RetrievalModel r) throws IOException;
 
-    return (this.displayName + "( " + result + ")");
-  }
+	/**
+	 *  Removes an argument from the list of query operator arguments.
+	 *  @param i The index of the query operator to remove.
+	 */
+	public void removeArg (int i) {
+		this.args.remove(i);
+	};
+
+	/**
+	 *  Every operator must have a display name that can be used by
+	 *  toString for debugging or other user feedback.  
+	 *  @param name The query operator's display name
+	 */
+	public void setDisplayName (String name) {
+		this.displayName = new String (name);
+	}
+
+	/**
+	 *  Get a string version of this query operator.  This is a generic
+	 *  method that works for most query operators.  However, some query
+	 *  operators (e.g., #NEAR/n or #WEIGHT) may need to override this
+	 *  method with something more specific.
+	 *  @return The string version of this query operator.
+	 */
+	@Override public String toString(){
+
+		String result = new String ();
+
+		for (int i=0; i<this.args.size(); i++)
+			result += this.args.get(i) + " ";
+
+		return (this.displayName + "( " + result + ")");
+	}
 
 }
