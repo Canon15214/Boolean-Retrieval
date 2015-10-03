@@ -127,6 +127,12 @@ public class QryEval {
 		else if (modelString.equals("rankedboolean")) {
 			model = new RetrievalModelRankedBoolean();
 		}
+		else if (modelString.equals("bm25")) {
+			double k_1 = Double.parseDouble(parameters.get("BM25:k_1"));
+			double b = Double.parseDouble(parameters.get("BM25:b"));
+			double k_3 = Double.parseDouble(parameters.get("BM25:k_3"));
+			model = new RetrievalModelBM25(k_1, b, k_3);
+		}
 		else {
 			throw new IllegalArgumentException
 			("Unknown retrieval model " + parameters.get("retrievalAlgorithm"));
@@ -200,6 +206,10 @@ public class QryEval {
 				opStack.push(currentOp);
 			} else if (token.equalsIgnoreCase("#and")) {
 				currentOp = new QrySopAnd ();
+				currentOp.setDisplayName (token);
+				opStack.push(currentOp);
+			} else if (token.equalsIgnoreCase("#sum")) {
+				currentOp = new QrySopSum ();
 				currentOp.setDisplayName (token);
 				opStack.push(currentOp);
 			} else if (token.equalsIgnoreCase("#syn")) {
@@ -436,7 +446,8 @@ public class QryEval {
 
 		BufferedWriter bw = new BufferedWriter(new FileWriter(out, true));
 		if (result.size() < 1) {
-			bw.write("\tNo results.\n");
+			//bw.write("\tNo results.\n");
+			bw.write(queryName + "\tQ0\tdummy\t1\t0\trun-1\n");
 		} else {
 			int numResults = Math.min(topKResults, result.size());
 			for (int i = 0; i < numResults; i++) {
@@ -456,14 +467,12 @@ public class QryEval {
 	 */
 	private static Map<String, String> readParameterFile (String parameterFileName)
 			throws IOException {
-
 		Map<String, String> parameters = new HashMap<String, String>();
 		File parameterFile = new File (parameterFileName);
 		if (! parameterFile.canRead ()) {
 			throw new IllegalArgumentException
 			("Can't read " + parameterFileName);
 		}
-
 		Scanner scan = new Scanner(parameterFile);
 		String line = null;
 		do {

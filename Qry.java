@@ -424,5 +424,17 @@ public abstract class Qry {
 
 		return (this.displayName + "( " + result + ")");
 	}
-
+	
+	/**
+	 * For use in a HashMap
+	 */
+    public boolean equals(Object obj){
+        if(!(obj instanceof Qry))   return false; 
+        Qry that = (Qry) obj;
+        return this.args.equals(that.args);
+     }
+     
+     public int hashCode(){
+         return this.args.hashCode();
+     }
 }
