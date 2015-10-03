@@ -45,18 +45,16 @@ public class QrySopSum extends QrySop {
 	 */
 	private double getScoreBM25 (RetrievalModel r) throws IOException {
 		double score = 0.0;
-		if (this.docIteratorHasMatchCache()) {
-			int docId = this.docIteratorGetMatch();
-			// #SUM operator combines the scores by summing them
-			for(Qry arg: this.args)		((RetrievalModelBM25) r).addQuery(arg);
-			Set<Qry> querySet = ((RetrievalModelBM25) r).getQueries();
-			for(Qry arg : querySet){
-				if(arg.docIteratorHasMatch(r) && docId == arg.docIteratorGetMatch()){
-					double argScore = ((QrySop) arg).getScore(r);
-					score += argScore;
-				}
-			}
-		}
+		if (this.docIteratorHasMatchCache()) return score;
+			
+		int docId = this.docIteratorGetMatch();
+		// #SUM operator combines the scores by summing them
+		for(Qry arg: this.args)		((RetrievalModelBM25) r).addQuery(arg);
+		Set<Qry> querySet = ((RetrievalModelBM25) r).getQueries();
+		for(Qry arg : querySet)
+			if(arg.docIteratorHasMatch(r) && docId == arg.docIteratorGetMatch())
+				score += ((QrySop) arg).getScore(r);
+		
 		return score;
 	}
 	

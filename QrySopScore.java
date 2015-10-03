@@ -77,16 +77,30 @@ public class QrySopScore extends QrySop {
 	 */
 	private double getScoreBM25 (RetrievalModel r) throws IOException {
 		QryIop q = (QryIop) this.args.get(0);
-		//return (double) q.docIteratorGetMatchPosting().tf;
-		// collect the statistics
-		int N = 0;
-		int df = 0;
-		int tf = 0;
-		int doclen = 0;
-		int avg_doclen = 0;
-		int qtf = 0;
+		RetrievalModelBM25 model = (RetrievalModelBM25) r;
+		String field = q.getField();
+		int docid = q.docIteratorGetMatch();
+		if (docid == INVALID_DOCID)	return 0.0;
 		
-		return 0.0;
+		// collect the statistics
+		double N = (double) Idx.getDocCount(field);
+		double df = (double) q.getDf();
+		double tf = (double) q.docIteratorGetMatchPosting().tf;
+		double doclen = (double) Idx.getFieldLength(field, docid);
+		double avg_doclen = (double) Idx.getSumOfFieldLengths(field) / N;
+		double qtf = model.getQueryFrequency(q);
+		double k_1 = model.k_1;
+		double b = model.b;
+		double k_3 = model.k_3;
+		
+		// RSJ weight
+		double rsj = Math.log((N - df + 0.5) / (df + 0.5));
+		// tf weight
+		double tf_weight = tf / (tf + k_1*(1 - b + (b * doclen / avg_doclen)));
+		// user weight
+		double user_weight = (k_3 + 1) * qtf / (k_3 + qtf);
+		
+		return rsj * tf_weight * user_weight;
 	}
 
 	/**

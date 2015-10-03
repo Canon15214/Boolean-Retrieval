@@ -431,10 +431,11 @@ public abstract class Qry {
     public boolean equals(Object obj){
         if(!(obj instanceof Qry))   return false; 
         Qry that = (Qry) obj;
-        return this.args.equals(that.args);
+        return this.args.equals(that.args) &&
+        		this.displayName.equals(that.displayName);
      }
      
      public int hashCode(){
-         return this.args.hashCode();
+         return this.args.hashCode() + this.displayName.hashCode();
      }
 }
