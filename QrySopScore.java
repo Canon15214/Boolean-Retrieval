@@ -38,6 +38,9 @@ public class QrySopScore extends QrySop {
 		else if (r instanceof RetrievalModelRankedBoolean) {
 			return this.getScoreRankedBoolean (r);
 		}
+		else if (r instanceof RetrievalModelIndri) {
+			return this.getScoreIndri (r);
+		}
 		else {
 			throw new IllegalArgumentException
 			(r.getClass().getName() + " doesn't support the SCORE operator.");
@@ -53,19 +56,8 @@ public class QrySopScore extends QrySop {
 			return this.defaultScore;
 
 		if (r instanceof RetrievalModelIndri) {
-			double score = 1.0;
 			QryIop q = (QryIop) this.args.get(0);
-			double lambda = ((RetrievalModelIndri) r).lambda;
-			double mu = (double) ((RetrievalModelIndri) r).mu;
-			double tf = 0.0;
-			double ctf = (double) q.invertedList.ctf;
-			double doclen = (double) Idx.getFieldLength(q.field, docid);
-			double corpuslen = Idx.getSumOfFieldLengths(q.field);
-			
-			score = (1.0 - lambda) * (tf + (mu * ctf / corpuslen)) / (doclen + mu);
-			score += lambda * ctf / corpuslen;
-			this.defaultScore = score;
-			
+			this.defaultScore = getQueryLikelihood(r, docid, q);
 			return this.defaultScore;
 		} else {
 			throw new IllegalArgumentException
@@ -96,6 +88,29 @@ public class QrySopScore extends QrySop {
 		return (double) q.docIteratorGetMatchPosting().tf;
 	}
 	
+	/**
+	 *  getScore for the Indri retrieval model.
+	 *  @param r The Indri retrieval model that determines how scores are calculated.
+	 *  @return The document score.
+	 *  @throws IOException Error accessing the Lucene index
+	 */
+	private double getScoreIndri (RetrievalModel r) throws IOException {
+		double score = 1.0;
+		if (this.docIteratorHasMatchCache()) {
+			int docId = this.docIteratorGetMatch();
+			// #AND operator combines the score with MIN
+			double power = 1.0 / (double) this.args.size();
+			for(Qry arg : this.args){
+				if(!arg.docIteratorHasMatch(r) || docId != arg.docIteratorGetMatch()){
+					score *= Math.pow(((QrySop) arg).getDefaultScore(r, docId), power);  
+				}
+				else
+					score *= Math.pow(((QrySop) arg).getScore(r), power);
+			}
+		}
+		return score;
+	}
+
 	/**
 	 *  getScore for the BM25 retrieval model.
 	 *  @param r The retrieval model that determines how scores are calculated.
@@ -132,6 +147,20 @@ public class QrySopScore extends QrySop {
 		double user_weight = (k_3 + 1) * qtf / (k_3 + qtf);
 		
 		return rsj * tf_weight * user_weight;
+	}
+	
+	private double getQueryLikelihood(RetrievalModel r, int docid, QryIop q) throws IOException{
+		double score = 1.0;
+		double lambda = ((RetrievalModelIndri) r).lambda;
+		double mu = (double) ((RetrievalModelIndri) r).mu;
+		double tf = 0.0;
+		double ctf = (double) q.invertedList.ctf;
+		double doclen = (double) Idx.getFieldLength(q.field, docid);
+		double corpuslen = Idx.getSumOfFieldLengths(q.field);
+		
+		score = (1.0 - lambda) * (tf + (mu * ctf / corpuslen)) / (doclen + mu);
+		score += lambda * ctf / corpuslen;
+		return score;
 	}
 
 	/**
