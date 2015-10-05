@@ -242,5 +242,20 @@ public abstract class QryIop extends Qry {
 		return (this.locIteratorIndex <
 				this.invertedList.getTf (this.docIteratorIndex));
 	}
+	
+	/**
+	 * For use in a HashMap
+	 */
+  public boolean equals(Object obj){
+      if(!(obj instanceof QryIop))   return false; 
+      QryIop that = (QryIop) obj;
+      return this.args.equals(that.args) &&
+    		  this.field.equals(that.field) &&
+    		  this.invertedList.equals(that.invertedList);
+   }
+   
+   public int hashCode(){
+       return this.args.hashCode() + this.field.hashCode() + this.invertedList.hashCode();
+   }
 
 }

@@ -15,7 +15,12 @@ public class QrySopAnd extends QrySop {
 	 *  @return True if the query matches, otherwise false.
 	 */
 	public boolean docIteratorHasMatch (RetrievalModel r) {
-		return this.docIteratorHasMatchAll (r);
+		if(r instanceof RetrievalModelUnrankedBoolean || r instanceof RetrievalModelRankedBoolean)
+			return this.docIteratorHasMatchAll (r);
+		else if(r instanceof RetrievalModelIndri)
+			return true;
+		else
+			return false;
 	}
 
 	/**
@@ -30,9 +35,34 @@ public class QrySopAnd extends QrySop {
 			return this.getScoreUnrankedBoolean (r);
 		} else if (r instanceof RetrievalModelRankedBoolean) {
 			return this.getScoreRankedBoolean (r);
+		} else if (r instanceof RetrievalModelIndri) {
+			return this.getScoreIndri (r);
 		} else {
 			throw new IllegalArgumentException
 			(r.getClass().getName() + " doesn't support the AND operator.");
+		}
+	}
+	
+	  /**
+	   * A default score for the probabilistic Indri ranked retrieval model
+	   */
+	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
+
+		if(this.defaultScore != Double.MIN_VALUE)
+			return this.defaultScore;
+		
+		if (r instanceof RetrievalModelIndri) {
+			double score = 1.0;
+			// #AND operator combines the default scores of its arguments
+			double power = 1.0 / (double) this.args.size();
+			for(Qry arg : this.args)
+				score *= Math.pow(((QrySop) arg).getDefaultScore(r, docid), power);  
+			this.defaultScore = score;
+			
+			return this.defaultScore;
+		} else {
+			throw new IllegalArgumentException
+			(r.getClass().getName() + " doesn't support the default score for AND operator.");
 		}
 	}
 
@@ -65,6 +95,29 @@ public class QrySopAnd extends QrySop {
 				}
 				double argScore = ((QrySop) arg).getScore(r);
 				if(argScore < score)	score = argScore;
+			}
+		}
+		return score;
+	}
+	
+	/**
+	 *  getScore for the Indri retrieval model.
+	 *  @param r The Indri retrieval model that determines how scores are calculated.
+	 *  @return The document score.
+	 *  @throws IOException Error accessing the Lucene index
+	 */
+	private double getScoreIndri (RetrievalModel r) throws IOException {
+		double score = 1.0;
+		if (this.docIteratorHasMatchCache()) {
+			int docId = this.docIteratorGetMatch();
+			// #AND operator combines the score with MIN
+			double power = 1.0 / (double) this.args.size();
+			for(Qry arg : this.args){
+				if(!arg.docIteratorHasMatch(r) || docId != arg.docIteratorGetMatch()){
+					score *= Math.pow(((QrySop) arg).getDefaultScore(r, docId), power);  
+				}
+				else
+					score *= Math.pow(((QrySop) arg).getScore(r), power);
 			}
 		}
 		return score;

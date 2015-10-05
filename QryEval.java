@@ -452,7 +452,7 @@ public class QryEval {
 			int numResults = Math.min(topKResults, result.size());
 			for (int i = 0; i < numResults; i++) {
 				bw.write(queryName + "\tQ0\t" + Idx.getExternalDocid(result.getDocid(i)) + "\t"
-						+ (i+1) + "\t" + result.getDocidScore(i) + "\trun-1\n");
+						+ (i+1) + "\t" + result.getDocidScore(i) + "\trun-2\n");
 			}
 		}
 		bw.close();

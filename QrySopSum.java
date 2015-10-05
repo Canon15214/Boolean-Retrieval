@@ -3,7 +3,7 @@
  */
 
 import java.io.*;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Set;
 
 /**
@@ -35,6 +35,31 @@ public class QrySopSum extends QrySop {
 			(r.getClass().getName() + " doesn't support the SUM operator.");
 		}
 	}
+	
+	  /**
+	   * A default score for the probabilistic Indri ranked retrieval model
+	   */
+	// TODO: Implement the defaultScore for Indri SUM operator 
+	// (right now, this is identical to Indri AND)
+	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
+		
+		if(this.defaultScore != Double.MIN_VALUE)
+			return this.defaultScore;
+		
+		if (r instanceof RetrievalModelIndri) {
+			double score = 1.0;
+			// #AND operator combines the default scores of its arguments
+			double power = 1.0 / (double) this.args.size();
+			for(Qry arg : this.args)
+				score *= Math.pow(((QrySop) arg).getDefaultScore(r, docid), power);  
+			this.defaultScore = score;
+			
+			return this.defaultScore;
+		} else {
+			throw new IllegalArgumentException
+			(r.getClass().getName() + " doesn't support the default score for AND operator.");
+		}
+	}
 
 	
 	/**
@@ -45,16 +70,22 @@ public class QrySopSum extends QrySop {
 	 */
 	private double getScoreBM25 (RetrievalModel r) throws IOException {
 		double score = 0.0;
-		if (this.docIteratorHasMatchCache()) return score;
-			
 		int docId = this.docIteratorGetMatch();
 		// #SUM operator combines the scores by summing them
-		for(Qry arg: this.args)		((RetrievalModelBM25) r).addQuery(arg);
-		Set<Qry> querySet = ((RetrievalModelBM25) r).getQueries();
-		for(Qry arg : querySet)
-			if(arg.docIteratorHasMatch(r) && docId == arg.docIteratorGetMatch())
-				score += ((QrySop) arg).getScore(r);
-		
+		clearQueries();
+		for(Qry arg: this.args)	{
+			this.addQuery(arg);
+		}
+		Set<Qry> querySet = getQueries();
+		for(Qry arg : querySet){
+			if(arg.docIteratorHasMatch(r) && docId == arg.docIteratorGetMatch()){
+				if(arg instanceof QrySopScore && r instanceof RetrievalModelBM25){
+					double qtf = (double) this.getQueryFrequency(arg);
+					score += ((QrySopScore) arg).getUserWeightedScore((RetrievalModelBM25)r, qtf);
+				}
+				else score += ((QrySop) arg).getScore(r);
+			}
+		}
 		return score;
 	}
 	

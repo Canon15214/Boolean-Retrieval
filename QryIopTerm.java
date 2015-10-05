@@ -51,4 +51,19 @@ public class QryIopTerm extends QryIop {
   public String toString(){
     return (this.term + "." + this.field);
   }
+  
+	/**
+	 * For use in a HashMap
+	 */
+public boolean equals(Object obj){
+    if(!(obj instanceof QryIopTerm))   return false; 
+    QryIopTerm that = (QryIopTerm) obj;
+    return this.args.equals(that.args) &&
+  		  this.field.equals(that.field) &&
+  		  this.term.equals(that.term);
+ }
+ 
+ public int hashCode(){
+     return this.args.hashCode() + this.field.hashCode() + this.term.hashCode();
+ }
 }

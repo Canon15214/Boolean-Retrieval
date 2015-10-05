@@ -2,6 +2,8 @@
  *  Copyright (c) 2015, Carnegie Mellon University.  All Rights Reserved.
  */
 import java.io.*;
+import java.util.HashMap;
+import java.util.Set;
 
 /**
  *  The root class of all query operators that use a retrieval model
@@ -13,6 +15,9 @@ import java.io.*;
  *  common to all query operators that calculate document scores.
  */
 public abstract class QrySop extends Qry {
+	
+  HashMap<Qry, Integer>  queryTermFrequencies = new HashMap<Qry, Integer>();
+  protected double defaultScore = Double.MIN_VALUE;
 
   /**
    *  Get a score for the document that docIteratorHasMatch matched.
@@ -23,6 +28,12 @@ public abstract class QrySop extends Qry {
   public abstract double getScore (RetrievalModel r)
     throws IOException;
 
+  /**
+   * A default score for the probabilistic Indri ranked retrieval model
+   */
+  public abstract double getDefaultScore(RetrievalModel r, int docid)
+  	throws IOException;
+  
   /**
    *  Initialize the query operator (and its arguments), including any
    *  internal iterators.  If the query operator is of type QryIop, it
@@ -36,4 +47,48 @@ public abstract class QrySop extends Qry {
       q_i.initialize (r);
     }
   }
+  
+	
+	/**
+	 * For use in a HashMap
+	 */
+  public boolean equals(Object obj){
+      if(!(obj instanceof QrySop))   return false; 
+      QrySop that = (QrySop) obj;
+      return this.args.equals(that.args);
+   }
+   
+   public int hashCode(){
+       return this.args.hashCode();
+   }
+   
+	/**
+	 * Methods for updating and retrieving query term frequencies 
+	 */
+	
+	  public void addQuery(Qry q){
+		  if(this.queryTermFrequencies.containsKey(q)){
+			  this.queryTermFrequencies.put(q, this.queryTermFrequencies.get(q) + 1);
+		  }
+		  
+		  else{
+			  this.queryTermFrequencies.put(q, 1);
+		  }
+	  }
+
+	  public int getQueryFrequency(Qry q){
+		  if(this.queryTermFrequencies.containsKey(q))
+			  return this.queryTermFrequencies.get(q);
+		  
+		  else
+			  return -1;
+	  }
+	  
+	  public Set<Qry> getQueries(){
+		  return this.queryTermFrequencies.keySet();
+	  }
+	  
+	  public void clearQueries(){
+		  this.queryTermFrequencies.clear();
+	  }
 }

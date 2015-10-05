@@ -4,6 +4,7 @@
 
 import java.io.*;
 import java.lang.IllegalArgumentException;
+import java.util.ArrayList;
 
 /**
  *  The SCORE operator for all retrieval models.
@@ -37,12 +38,38 @@ public class QrySopScore extends QrySop {
 		else if (r instanceof RetrievalModelRankedBoolean) {
 			return this.getScoreRankedBoolean (r);
 		}
-		else if (r instanceof RetrievalModelBM25) {
-			return this.getScoreBM25 (r);
-		}
 		else {
 			throw new IllegalArgumentException
 			(r.getClass().getName() + " doesn't support the SCORE operator.");
+		}
+	}
+	
+	  /**
+	   * A default score for the probabilistic Indri ranked retrieval model
+	   */
+	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
+		
+		if(this.defaultScore != Double.MIN_VALUE)
+			return this.defaultScore;
+
+		if (r instanceof RetrievalModelIndri) {
+			double score = 1.0;
+			QryIop q = (QryIop) this.args.get(0);
+			double lambda = ((RetrievalModelIndri) r).lambda;
+			double mu = (double) ((RetrievalModelIndri) r).mu;
+			double tf = 0.0;
+			double ctf = (double) q.invertedList.ctf;
+			double doclen = (double) Idx.getFieldLength(q.field, docid);
+			double corpuslen = Idx.getSumOfFieldLengths(q.field);
+			
+			score = (1.0 - lambda) * (tf + (mu * ctf / corpuslen)) / (doclen + mu);
+			score += lambda * ctf / corpuslen;
+			this.defaultScore = score;
+			
+			return this.defaultScore;
+		} else {
+			throw new IllegalArgumentException
+			(r.getClass().getName() + " doesn't support the default score for AND operator.");
 		}
 	}
 
@@ -75,26 +102,30 @@ public class QrySopScore extends QrySop {
 	 *  @return The document score.
 	 *  @throws IOException Error accessing the Lucene index
 	 */
-	private double getScoreBM25 (RetrievalModel r) throws IOException {
+	public double getUserWeightedScore (RetrievalModelBM25 model, double qtf) throws IOException {
 		QryIop q = (QryIop) this.args.get(0);
-		RetrievalModelBM25 model = (RetrievalModelBM25) r;
 		String field = q.getField();
 		int docid = q.docIteratorGetMatch();
-		if (docid == INVALID_DOCID)	return 0.0;
+		if (docid == INVALID_DOCID){
+			System.out.println("invalid encoutnered");
+			return 0.0;
+		}
 		
 		// collect the statistics
 		double N = (double) Idx.getDocCount(field);
+		//double N = (double) Idx.getNumDocs();
 		double df = (double) q.getDf();
 		double tf = (double) q.docIteratorGetMatchPosting().tf;
 		double doclen = (double) Idx.getFieldLength(field, docid);
-		double avg_doclen = (double) Idx.getSumOfFieldLengths(field) / N;
-		double qtf = model.getQueryFrequency(q);
+		double avg_doclen = (double) Idx.getSumOfFieldLengths(field) / (double) Idx.getDocCount(field);
+		//TODO: Fix logic for qtf
+		//double qtf = 1.0;
 		double k_1 = model.k_1;
 		double b = model.b;
 		double k_3 = model.k_3;
 		
 		// RSJ weight
-		double rsj = Math.log((N - df + 0.5) / (df + 0.5));
+		double rsj = Math.max(0.0, Math.log((N - df + 0.5) / (df + 0.5)));
 		// tf weight
 		double tf_weight = tf / (tf + k_1*(1 - b + (b * doclen / avg_doclen)));
 		// user weight
@@ -116,5 +147,18 @@ public class QrySopScore extends QrySop {
 		Qry q = this.args.get (0);
 		q.initialize (r);
 	}
+	
+	/**
+	 * For use in a HashMap
+	 */
+  public boolean equals(Object obj){
+      if(!(obj instanceof QrySopScore))   return false; 
+      QrySopScore that = (QrySopScore) obj;
+      return this.args.equals(that.args);
+   }
+   
+   public int hashCode(){
+       return this.args.hashCode();
+   }
 
 }

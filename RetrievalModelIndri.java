@@ -6,31 +6,29 @@ import java.util.Set;
  */
 
 /**
- *  An object that stores parameters for the BM25 ranked
+ *  An object that stores parameters for the Indri ranked
  *  retrieval model and indicates to the query
  *  operators how the query should be evaluated.
  */
-public class RetrievalModelBM25 extends RetrievalModel {
+public class RetrievalModelIndri extends RetrievalModel {
 
   /**
    * Parameters for the model
    */
 	
-  public double k_1;
-  public double b;
-  public double k_3;
+  public int mu;
+  public double lambda;
 	
   /**
    * Custom constructor
    */
-  public RetrievalModelBM25(double k_1, double b, double k_3){
-	  this.k_1 = k_1;
-	  this.b = b;
-	  this.k_3 = k_3;
+  public RetrievalModelIndri(int mu, double lambda){
+	  this.mu = mu;
+	  this.lambda = lambda;
   }
   
   public String defaultQrySopName () {
-    return new String ("#sum");
+    return new String ("#and");
   }
   
 }
