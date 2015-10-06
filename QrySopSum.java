@@ -43,18 +43,13 @@ public class QrySopSum extends QrySop {
 	// (right now, this is identical to Indri AND)
 	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
 		
-		if(this.defaultScore != Double.MIN_VALUE)
-			return this.defaultScore;
-		
 		if (r instanceof RetrievalModelIndri) {
 			double score = 1.0;
 			// #AND operator combines the default scores of its arguments
 			double power = 1.0 / (double) this.args.size();
 			for(Qry arg : this.args)
 				score *= Math.pow(((QrySop) arg).getDefaultScore(r, docid), power);  
-			this.defaultScore = score;
-			
-			return this.defaultScore;
+			return score;
 		} else {
 			throw new IllegalArgumentException
 			(r.getClass().getName() + " doesn't support the default score for AND operator.");
@@ -83,6 +78,7 @@ public class QrySopSum extends QrySop {
 					double qtf = (double) this.getQueryFrequency(arg);
 					score += ((QrySopScore) arg).getUserWeightedScore((RetrievalModelBM25)r, qtf);
 				}
+				// check if this exectu
 				else score += ((QrySop) arg).getScore(r);
 			}
 		}

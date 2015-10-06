@@ -52,16 +52,12 @@ public class QrySopScore extends QrySop {
 	   */
 	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
 		
-		if(this.defaultScore != Double.MIN_VALUE)
-			return this.defaultScore;
-
 		if (r instanceof RetrievalModelIndri) {
 			QryIop q = (QryIop) this.args.get(0);
-			this.defaultScore = getQueryLikelihood(r, docid, q);
-			return this.defaultScore;
+			return getQueryLikelihood(r, docid, q, true);
 		} else {
 			throw new IllegalArgumentException
-			(r.getClass().getName() + " doesn't support the default score for AND operator.");
+			(r.getClass().getName() + " doesn't support the default score for #SCORE operator.");
 		}
 	}
 
@@ -95,20 +91,18 @@ public class QrySopScore extends QrySop {
 	 *  @throws IOException Error accessing the Lucene index
 	 */
 	private double getScoreIndri (RetrievalModel r) throws IOException {
-		double score = 1.0;
-		if (this.docIteratorHasMatchCache()) {
-			int docId = this.docIteratorGetMatch();
-			// #AND operator combines the score with MIN
-			double power = 1.0 / (double) this.args.size();
-			for(Qry arg : this.args){
-				if(!arg.docIteratorHasMatch(r) || docId != arg.docIteratorGetMatch()){
-					score *= Math.pow(((QrySop) arg).getDefaultScore(r, docId), power);  
-				}
-				else
-					score *= Math.pow(((QrySop) arg).getScore(r), power);
-			}
+		
+		if (r instanceof RetrievalModelIndri) {
+			int docid = this.docIteratorGetMatch();
+			QryIop q = (QryIop) this.args.get(0);
+			if(q.docIteratorHasMatch(r) && docid == q.docIteratorGetMatch())
+				return getQueryLikelihood(r, docid, q, false);
+			else
+				return getQueryLikelihood(r, docid, q, true);
+		} else {
+			throw new IllegalArgumentException
+			(r.getClass().getName() + " doesn't support the score for #SCORE operator.");
 		}
-		return score;
 	}
 
 	/**
@@ -127,8 +121,8 @@ public class QrySopScore extends QrySop {
 		}
 		
 		// collect the statistics
-		double N = (double) Idx.getDocCount(field);
-		//double N = (double) Idx.getNumDocs();
+		//double N = (double) Idx.getDocCount(field);
+		double N = (double) Idx.getNumDocs();
 		double df = (double) q.getDf();
 		double tf = (double) q.docIteratorGetMatchPosting().tf;
 		double doclen = (double) Idx.getFieldLength(field, docid);
@@ -149,11 +143,12 @@ public class QrySopScore extends QrySop {
 		return rsj * tf_weight * user_weight;
 	}
 	
-	private double getQueryLikelihood(RetrievalModel r, int docid, QryIop q) throws IOException{
+	private double getQueryLikelihood(RetrievalModel r, int docid, QryIop q, boolean defaultScore) 
+			throws IOException{
 		double score = 1.0;
 		double lambda = ((RetrievalModelIndri) r).lambda;
 		double mu = (double) ((RetrievalModelIndri) r).mu;
-		double tf = 0.0;
+		double tf = defaultScore ? 0.0 : (double) q.docIteratorGetMatchPosting().tf;
 		double ctf = (double) q.invertedList.ctf;
 		double doclen = (double) Idx.getFieldLength(q.field, docid);
 		double corpuslen = Idx.getSumOfFieldLengths(q.field);

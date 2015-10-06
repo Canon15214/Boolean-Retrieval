@@ -40,17 +40,13 @@ public class QrySopOr extends QrySop {
 	   */
 	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
 		
-		if(this.defaultScore != Double.MIN_VALUE)
-			return this.defaultScore;
-		
 		if (r instanceof RetrievalModelIndri) {
 			double score = 1.0;
 			// #OR operator combines the default scores of its arguments
 			for(Qry arg : this.args)
 				score *= (1.0 - ((QrySop) arg).getDefaultScore(r, docid));  
-			this.defaultScore = 1.0 - score;
-			
-			return this.defaultScore;
+			score = 1.0 - score;
+			return score;
 		} else {
 			throw new IllegalArgumentException
 			(r.getClass().getName() + " doesn't support the default score for AND operator.");

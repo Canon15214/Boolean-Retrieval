@@ -18,7 +18,7 @@ public class QrySopAnd extends QrySop {
 		if(r instanceof RetrievalModelUnrankedBoolean || r instanceof RetrievalModelRankedBoolean)
 			return this.docIteratorHasMatchAll (r);
 		else if(r instanceof RetrievalModelIndri)
-			return true;
+			return this.docIteratorHasMatchMin(r);
 		else
 			return false;
 	}
@@ -48,18 +48,13 @@ public class QrySopAnd extends QrySop {
 	   */
 	public double getDefaultScore (RetrievalModel r, int docid) throws IOException {
 
-		if(this.defaultScore != Double.MIN_VALUE)
-			return this.defaultScore;
-		
 		if (r instanceof RetrievalModelIndri) {
 			double score = 1.0;
 			// #AND operator combines the default scores of its arguments
 			double power = 1.0 / (double) this.args.size();
 			for(Qry arg : this.args)
 				score *= Math.pow(((QrySop) arg).getDefaultScore(r, docid), power);  
-			this.defaultScore = score;
-			
-			return this.defaultScore;
+			return score;
 		} else {
 			throw new IllegalArgumentException
 			(r.getClass().getName() + " doesn't support the default score for AND operator.");

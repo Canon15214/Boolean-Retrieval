@@ -89,7 +89,7 @@ public class QryIopNear extends QryIop {
 			}
 			getValidNearPositions(positions, postingsLists);
 			Collections.sort (positions);
-			this.invertedList.appendPosting (minDocid, positions);
+			if(positions.size() > 0)	this.invertedList.appendPosting (minDocid, positions);
 		}
 	}
 

@@ -133,6 +133,11 @@ public class QryEval {
 			double k_3 = Double.parseDouble(parameters.get("BM25:k_3"));
 			model = new RetrievalModelBM25(k_1, b, k_3);
 		}
+		else if (modelString.equals("indri")) {
+			int mu = Integer.parseInt(parameters.get("Indri:mu"));
+			double lambda = Double.parseDouble(parameters.get("Indri:lambda"));
+			model = new RetrievalModelIndri(mu, lambda);
+		}
 		else {
 			throw new IllegalArgumentException
 			("Unknown retrieval model " + parameters.get("retrievalAlgorithm"));
