@@ -421,7 +421,7 @@ public abstract class Qry {
 
 		for (int i=0; i<this.args.size(); i++)
 			result += this.args.get(i) + " ";
-
+			
 		return (this.displayName + "( " + result + ")");
 	}
 

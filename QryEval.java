@@ -213,6 +213,11 @@ public class QryEval {
 				currentOp = new QrySopAnd ();
 				currentOp.setDisplayName (token);
 				opStack.push(currentOp);
+			} else if (token.equalsIgnoreCase("#wand")) {
+				currentOp = new QrySopWeightedAnd ();
+				currentOp.setDisplayName (token);
+				opStack.push(currentOp);
+				weightExpected = true;
 			} else if (token.equalsIgnoreCase("#sum")) {
 				currentOp = new QrySopSum ();
 				currentOp.setDisplayName (token);
@@ -234,6 +239,20 @@ public class QryEval {
 				currentOp.setDisplayName (token);
 				opStack.push(currentOp);
 			} else {
+				
+				if(weightExpected){
+					// assert that this token is a weight
+					assert isDouble(token);
+					// read this weight and add it to the weight stack
+					weightStack.push(Double.valueOf(token));
+					weightExpected = false;
+					continue;
+				}
+				else{
+					if(currentOp instanceof QrySopWeightedAnd)
+						weightExpected = true;
+				}
+				
 				int delimiter = token.indexOf('.');
 				String field = null;
 				String term = null;
@@ -259,11 +278,16 @@ public class QryEval {
 				//  multiple terms (e.g., "near" and "death").
 
 				String t[] = tokenizeQuery(term);
-
+				Double weight = weightStack.pop() / t.length;
+				// also split the weight equally for all args if this is a WAND or WSUM
 				for (int j = 0; j < t.length; j++) {
 					Qry termOp = new QryIopTerm(t [j], field);
 					currentOp.appendArg (termOp);
+					if(currentOp instanceof QrySopWeightedAnd)
+						((QrySopWeightedAnd) currentOp).addWeight(weight);
 				}
+				
+				
 			}
 		}
 
@@ -533,5 +557,14 @@ public class QryEval {
 
 		return tokens.toArray (new String[tokens.size()]);
 	}
+	
+	 private static boolean isDouble(String str) {
+	        try {
+	            Double.parseDouble(str);
+	            return true;
+	        } catch (NumberFormatException e) {
+	            return false;
+	        }
+	    }
 
 }

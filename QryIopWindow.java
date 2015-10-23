@@ -111,7 +111,6 @@ public class QryIopWindow extends QryIop {
 		while(!postingEmpty){
 			// advance all iterators or only the one with minimum index based on matchFound
 			for(int i=0; i<numPostings; i++){
-				
 				if(!matchFound && i != minIndex)	continue;
 				ListIterator<Integer> it = postingsIterators.get(i);
 				if(!it.hasNext()){
@@ -119,12 +118,8 @@ public class QryIopWindow extends QryIop {
 					break;
 				}
 				position = it.next();
-				if(matchFound)
-					locations.add(position);
-				
-				else
-					locations.set(minIndex, position);
-				
+				if(matchFound)		locations.add(position);
+				else				locations.set(minIndex, position);
 			}
 			
 			if(locations.size() < numPostings)	break;
@@ -133,7 +128,7 @@ public class QryIopWindow extends QryIop {
 			int minLoc = Collections.min(locations);
 			minIndex = locations.indexOf(minLoc);
 			int windowSize = maxLoc - minLoc + 1;
-			matchFound = windowSize <= this.maxDistance ? true : false;
+			matchFound = windowSize <= this.maxDistance;
 			
 			if(matchFound){
 				positions.add(maxLoc);
