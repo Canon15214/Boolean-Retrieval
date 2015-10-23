@@ -227,9 +227,13 @@ public class QryEval {
 				currentOp = new QryIopNear(distance);
 				currentOp.setDisplayName (token);
 				opStack.push(currentOp);
-			}	 else {
-
-				//  Split the token into a term and a field.
+			} else if (token.regionMatches(true, 0, "#window", 0, 7)) {
+				String[] subTokens = token.split("/");
+				int distance = Integer.parseInt(subTokens[1]);
+				currentOp = new QryIopWindow(distance);
+				currentOp.setDisplayName (token);
+				opStack.push(currentOp);
+			} else {
 				int delimiter = token.indexOf('.');
 				String field = null;
 				String term = null;

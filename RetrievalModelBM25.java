@@ -15,7 +15,6 @@ public class RetrievalModelBM25 extends RetrievalModel {
   /**
    * Parameters for the model
    */
-	
   public double k_1;
   public double b;
   public double k_3;

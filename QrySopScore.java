@@ -38,6 +38,9 @@ public class QrySopScore extends QrySop {
 		else if (r instanceof RetrievalModelRankedBoolean) {
 			return this.getScoreRankedBoolean (r);
 		}
+		else if (r instanceof RetrievalModelBM25) {
+			return this.getUserWeightedScore((RetrievalModelBM25) r, 1.0);
+		}
 		else if (r instanceof RetrievalModelIndri) {
 			return this.getScoreIndri (r);
 		}
@@ -116,7 +119,7 @@ public class QrySopScore extends QrySop {
 		String field = q.getField();
 		int docid = q.docIteratorGetMatch();
 		if (docid == INVALID_DOCID){
-			System.out.println("invalid encoutnered");
+			System.out.println("invalid encountered");
 			return 0.0;
 		}
 		

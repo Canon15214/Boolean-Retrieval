@@ -16,6 +16,9 @@ import java.util.Set;
  */
 public abstract class QrySop extends Qry {
 	
+  /**
+   * This stores the query term frequencies to help in generate the query model
+   */
   HashMap<Qry, Integer>  queryTermFrequencies = new HashMap<Qry, Integer>();
   protected double defaultScore = Double.MIN_VALUE;
 

@@ -78,7 +78,6 @@ public class QrySopSum extends QrySop {
 					double qtf = (double) this.getQueryFrequency(arg);
 					score += ((QrySopScore) arg).getUserWeightedScore((RetrievalModelBM25)r, qtf);
 				}
-				// check if this exectu
 				else score += ((QrySop) arg).getScore(r);
 			}
 		}
