@@ -204,7 +204,15 @@ public class QryEval {
 				Qry arg = currentOp;
 				currentOp = opStack.peek();
 				currentOp.appendArg(arg);
-
+				if(currentOp instanceof QrySopWeightedAnd)
+						((QrySopWeightedAnd) currentOp).addWeight(weightStack.pop());
+				if(currentOp instanceof QrySopWeightedSum)
+						((QrySopWeightedSum) currentOp).addWeight(weightStack.pop());
+				
+				if(currentOp instanceof QrySopWeightedAnd
+							|| currentOp instanceof QrySopWeightedSum)
+					weightExpected = true;
+					
 			} else if (token.equalsIgnoreCase("#or")) {
 				currentOp = new QrySopOr ();
 				currentOp.setDisplayName (token);
@@ -215,6 +223,11 @@ public class QryEval {
 				opStack.push(currentOp);
 			} else if (token.equalsIgnoreCase("#wand")) {
 				currentOp = new QrySopWeightedAnd ();
+				currentOp.setDisplayName (token);
+				opStack.push(currentOp);
+				weightExpected = true;
+			} else if (token.equalsIgnoreCase("#wsum")) {
+				currentOp = new QrySopWeightedSum ();
 				currentOp.setDisplayName (token);
 				opStack.push(currentOp);
 				weightExpected = true;
@@ -248,10 +261,10 @@ public class QryEval {
 					weightExpected = false;
 					continue;
 				}
-				else{
-					if(currentOp instanceof QrySopWeightedAnd)
-						weightExpected = true;
-				}
+					
+				if(currentOp instanceof QrySopWeightedAnd
+							|| currentOp instanceof QrySopWeightedSum)
+					weightExpected = true;
 				
 				int delimiter = token.indexOf('.');
 				String field = null;
@@ -278,13 +291,18 @@ public class QryEval {
 				//  multiple terms (e.g., "near" and "death").
 
 				String t[] = tokenizeQuery(term);
-				Double weight = weightStack.pop() / t.length;
-				// also split the weight equally for all args if this is a WAND or WSUM
+				Double weight = 0.0;
+				if(currentOp instanceof QrySopWeightedAnd
+						|| currentOp instanceof QrySopWeightedSum)
+					weight = weightStack.pop();
+				// add the same weight for all args if this is a WAND or WSUM
 				for (int j = 0; j < t.length; j++) {
 					Qry termOp = new QryIopTerm(t [j], field);
 					currentOp.appendArg (termOp);
 					if(currentOp instanceof QrySopWeightedAnd)
 						((QrySopWeightedAnd) currentOp).addWeight(weight);
+					else if(currentOp instanceof QrySopWeightedSum)
+						((QrySopWeightedSum) currentOp).addWeight(weight);
 				}
 				
 				
