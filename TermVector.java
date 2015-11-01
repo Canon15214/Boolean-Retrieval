@@ -11,7 +11,7 @@ import org.apache.lucene.index.TermsEnum;
 
 /**
  *  An Indri DocVector-style interface for the Lucene termvector.
- *  There are three main data structurs:
+ *  There are three main data structures:
  *  <p>
  *  <pre>
  *    stems:      The field's vocabulary.  The 0'th entry is an empty string.
@@ -126,7 +126,7 @@ public class TermVector {
   /**
    *  Get the number of positions in this field (the length of the
    *  field). If positions are not stored, it returns 0.
-   *  @return The number of positionsin this field (the field length).
+   *  @return The number of positions in this field (the field length).
    */
   public int positionsLength() {
     return this.positions.length;
