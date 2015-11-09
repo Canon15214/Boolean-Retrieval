@@ -223,11 +223,11 @@ public class QryEval {
 				}
 			}
 			
-			
+			/*
 			for(Entry<String, Double> e: initialRankingDocScores.entrySet()){
 				System.out.println(e.getKey() + "\t" + e.getValue());
 			}
-			
+			*/
 			
 			String query_expanded = expandQuery(qString, initialRankingDocScores);
 			Double originalWeight = Double.parseDouble(parameters.get("fbOrigWeight"));
@@ -638,24 +638,24 @@ public class QryEval {
 				System.out.println("Could not read internal doc id or corpus length from the index");
 				e.printStackTrace();
 			}
-			
-			// Sort candidate terms by score
-			int numExpansionTerms = Integer.parseInt(parameters.get("fbTerms"));
-			PriorityQueue<TermScorePair> termScorepairs = new PriorityQueue<TermScorePair>(numExpansionTerms,
-															new TermScoreComparator());
-			for(String term: candidateTerms.keySet())
-				termScorepairs.add(new TermScorePair(term, candidateTerms.get(term)));
-				
-			Stack<TermScorePair> topPairs = new Stack<TermScorePair>();
-			for(int i=0; i<numExpansionTerms; i++)	topPairs.add(termScorepairs.poll());
-
-			expandedQuery = "#WAND( ";
-			for(int i=0; i<numExpansionTerms; i++){
-				TermScorePair tsp = topPairs.pop();
-				expandedQuery += String.format( "%.4f", tsp.score ) + " " + tsp.term + " "; 
-			}
-			expandedQuery += ")";
 		}
+			
+		// Sort candidate terms by score
+		int numExpansionTerms = Integer.parseInt(parameters.get("fbTerms"));
+		PriorityQueue<TermScorePair> termScorepairs = new PriorityQueue<TermScorePair>(numExpansionTerms,
+				new TermScoreComparator());
+		for(String term: candidateTerms.keySet())
+			termScorepairs.add(new TermScorePair(term, candidateTerms.get(term)));
+
+		Stack<TermScorePair> topPairs = new Stack<TermScorePair>();
+		for(int i=0; i<numExpansionTerms; i++)	topPairs.add(termScorepairs.poll());
+
+		expandedQuery = "#WAND( ";
+		for(int i=0; i<numExpansionTerms; i++){
+			TermScorePair tsp = topPairs.pop();
+			expandedQuery += String.format( "%.4f", tsp.score ) + " " + tsp.term + " "; 
+		}
+		expandedQuery += ")";
 		
 		return expandedQuery;
 	}
