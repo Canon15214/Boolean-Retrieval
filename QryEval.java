@@ -219,15 +219,8 @@ public class QryEval {
 				for (int i = 0; i < docsToRead; i++){
 					initialRankingDocScores.put(Idx.getExternalDocid(r.getDocid(i)), r.getDocidScore(i));
 
-					//System.out.println(Idx.getExternalDocid(r.getDocid(i)) + "\t" + r.getDocidScore(i));
 				}
 			}
-			
-			/*
-			for(Entry<String, Double> e: initialRankingDocScores.entrySet()){
-				System.out.println(e.getKey() + "\t" + e.getValue());
-			}
-			*/
 			
 			String query_expanded = expandQuery(qString, initialRankingDocScores);
 			Double originalWeight = Double.parseDouble(parameters.get("fbOrigWeight"));
@@ -580,7 +573,6 @@ public class QryEval {
 	private static String expandQuery(String query, Map<String, Double> initialRankingDocScores) {
 		// Map of candidate expansion terms to scores
 		HashMap<String, Double> candidateTerms = new HashMap<String, Double>();
-		String expandedQuery = null;
 		HashMap<String, Long> corpusTermFrequencies = new HashMap<String, Long>();
 		
 		// collect all candidate terms first
@@ -603,37 +595,49 @@ public class QryEval {
 		}
 
 		// compute scores for the candidate terms
+		Set<String> tempSet = null;
 		for(String id: initialRankingDocScores.keySet()){
 			try {
+				tempSet = new HashSet(candidateTerms.keySet());
+				
 				int internalDocId = Idx.getInternalDocid(id);
 				Long corpusLen = Idx.getSumOfFieldLengths("body");
 				Double mu = Double.parseDouble(parameters.get("fbMu"));
 				TermVector forwardIndex = new TermVector(internalDocId, "body");
-				//int uniqueStems = forwardIndex.stemsLength();
+				int uniqueStems = forwardIndex.stemsLength();
 				Integer docLen = forwardIndex.positionsLength();
-				//HashSet<String> uniqueStemsSeen = new HashSet<String>();
 				
-				//for(int i=1; i<uniqueStems; i++){
-				for(String candidateTerm: candidateTerms.keySet()){
-					//String candidateTerm = forwardIndex.stemString(i);
-					//if(uniqueStemsSeen.contains(candidateTerm))		continue;		// don't double count the score
-					//uniqueStemsSeen.add(candidateTerm);
-					// compute score from this document
-					int idx = forwardIndex.indexOfStem(candidateTerm);
-					//if(idx == -1)	continue;
+				// compute scores for terms with non-zero tf
+				for(int i=1; i<uniqueStems; i++){
+				//for(String candidateTerm: candidateTerms.keySet()){
+					String candidateTerm = forwardIndex.stemString(i);
+					if(!tempSet.contains(candidateTerm))	continue;			// don't double count
+					tempSet.remove(candidateTerm);
 					Double indriScore = initialRankingDocScores.get(id);
-					//Long ctf = forwardIndex.totalStemFreq(idx);
-					Long ctf = corpusTermFrequencies.get(candidateTerm);
-					Integer tf = (idx > 0) ? forwardIndex.stemFreq(idx) : 0;
+					Long ctf = forwardIndex.totalStemFreq(i);
+					Integer tf = forwardIndex.stemFreq(i);
 					Double tGivenC = (double) ctf / (double) corpusLen;
 					Double tGivenD = ((double) tf + (mu * tGivenC)) / ((double) docLen + mu); 
 					Double idf = Math.log(1.0 / tGivenC);
 					Double score = tGivenD * indriScore * idf;
-					if(candidateTerms.containsKey(candidateTerm))
-						candidateTerms.put(candidateTerm, candidateTerms.get(candidateTerm) + score);
-					else
-						candidateTerms.put(candidateTerm, score);
+					candidateTerms.put(candidateTerm, candidateTerms.get(candidateTerm) + score);
+					
 				}
+				
+				// compute scores for terms with zero tf
+				for(String candidateTerm: tempSet){
+					Double indriScore = initialRankingDocScores.get(id);
+					Long ctf = corpusTermFrequencies.get(candidateTerm);
+					Integer tf = 0;
+					Double tGivenC = (double) ctf / (double) corpusLen;
+					Double tGivenD = ((double) tf + (mu * tGivenC)) / ((double) docLen + mu); 
+					Double idf = Math.log(1.0 / tGivenC);
+					Double score = tGivenD * indriScore * idf;
+					candidateTerms.put(candidateTerm, candidateTerms.get(candidateTerm) + score);
+					
+				}
+				tempSet.clear();
+				
 			} catch (Exception e) {
 				System.out.println("Could not read internal doc id or corpus length from the index");
 				e.printStackTrace();
@@ -650,7 +654,7 @@ public class QryEval {
 		Stack<TermScorePair> topPairs = new Stack<TermScorePair>();
 		for(int i=0; i<numExpansionTerms; i++)	topPairs.add(termScorepairs.poll());
 
-		expandedQuery = "#WAND( ";
+		String expandedQuery = "#WAND( ";
 		for(int i=0; i<numExpansionTerms; i++){
 			TermScorePair tsp = topPairs.pop();
 			expandedQuery += String.format( "%.4f", tsp.score ) + " " + tsp.term + " "; 
