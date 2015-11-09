@@ -5,6 +5,7 @@
 
 import java.io.*;
 import java.util.*;
+import java.util.Map.Entry;
 
 import org.apache.lucene.analysis.Analyzer.TokenStreamComponents;
 import org.apache.lucene.analysis.TokenStream;
@@ -63,6 +64,11 @@ public class QryEval {
 	private static Map<String, String> parameters;
 	private static File out;
 
+	// For Pseudo Relevance Feedback
+	private static BufferedReader initialRankingInput;
+	private static BufferedWriter expansionQueryFile;
+	private static boolean outputExtendedQuery = false;
+	private static boolean queryFileEmpty = true;
 	//  --------------- Methods ---------------------------------------
 
 	/**
@@ -155,16 +161,88 @@ public class QryEval {
 	 *          A query tree
 	 * @throws IOException Error accessing the Lucene index.
 	 */
-	static Qry parseQuery(String qString, RetrievalModel model) throws IOException {
+	static Qry parseQuery(String queryString, String qId, RetrievalModel model, boolean enableExpansion) throws IOException {
 
 		//  Add a default query operator to every query. This is a tiny
 		//  bit of inefficiency, but it allows other code to assume
 		//  that the query will return document ids and scores.
 
 		String defaultOp = model.defaultQrySopName ();
+		String qString = defaultOp + "(" + queryString + ")";
+		
+		/**
+		 * Expand query string if feedback is enabled
+		 */
+		if(enableExpansion && parameters.containsKey("fb") && 
+				parameters.get("fb").equals("true")){
+			HashMap<String, Double> initialRankingDocScores = new HashMap<String, Double>();
+			
+			if(parameters.containsKey("fbInitialRankingFile")){
+				//read a document ranking in trec_eval input format from the fbInitialRankingFile;
+				// Build the initial ranking docid to score map
+				int docsToRead = Math.min(topKResults, Integer.parseInt(parameters.get("fbDocs")));
+				for(int i=0; i<docsToRead; i++){
+					String line = initialRankingInput.readLine();
+					String[] tokens = line.split("[ \t]");
+					String externalDocId = tokens[2];
+					Double docIndriScore = Double.parseDouble(tokens[4]);
+					initialRankingDocScores.put(externalDocId, docIndriScore);
+				}
+				int i=0;
+				while(initialRankingInput.readLine()!=null && i<(topKResults - docsToRead))		i++;
+			}
+			
+			else{
+				// use the query to retrieve documents;
+				Qry q = parseQuery(queryString, qId, model, false);
+				if (q.args.size() == 1) {
+					Qry q_0 = q.args.get(0);
+					if (q_0 instanceof QrySop)		q = q_0;
+				}
 
-		qString = defaultOp + "(" + qString + ")";
+				while ((q != null) && parseQueryCleanup(q))
+					;
 
+				ScoreList r = new ScoreList ();
+				//RetrievalModel expansionModel = new RetrievalModelIndri(1000, 0.7);	
+				if (q.args.size () > 0) {		// Ignore empty queries
+					q.initialize (model);
+					while (q.docIteratorHasMatch (model)) {
+						int docid = q.docIteratorGetMatch ();
+						double score = ((QrySop) q).getScore (model);
+						r.add (docid, score);
+						q.docIteratorAdvancePast (docid);
+					}
+				}
+				r.sort();
+				int docsToRead = Math.min(topKResults, Integer.parseInt(parameters.get("fbDocs")));
+				for (int i = 0; i < docsToRead; i++){
+					initialRankingDocScores.put(Idx.getExternalDocid(r.getDocid(i)), r.getDocidScore(i));
+
+					//System.out.println(Idx.getExternalDocid(r.getDocid(i)) + "\t" + r.getDocidScore(i));
+				}
+			}
+			
+			
+			for(Entry<String, Double> e: initialRankingDocScores.entrySet()){
+				System.out.println(e.getKey() + "\t" + e.getValue());
+			}
+			
+			
+			String query_expanded = expandQuery(qString, initialRankingDocScores);
+			Double originalWeight = Double.parseDouble(parameters.get("fbOrigWeight"));
+			Double expansionWeight = 1.0 - originalWeight;
+			
+			qString = "#WAND(" + originalWeight.toString() + " " + qString 
+					+ " " + expansionWeight.toString() + " " + query_expanded + ")";
+				
+			if(!queryFileEmpty){expansionQueryFile.write("\n");expansionQueryFile.flush();}
+			if(outputExtendedQuery){expansionQueryFile.write(qId + ":" + query_expanded);expansionQueryFile.flush();}
+			if(queryFileEmpty)		queryFileEmpty = false;
+			System.out.println(qId + ":" + query_expanded);
+		}
+		//System.out.println("final query: " + qString);
+		
 		//  Simple query tokenization.  Terms like "near-death" are handled later.
 		StringTokenizer tokens = new StringTokenizer(qString, "\t\n\r ,()", true);
 		String token = null;
@@ -387,10 +465,11 @@ public class QryEval {
 	 * @return Search results
 	 * @throws IOException Error accessing the index
 	 */
-	static ScoreList processQuery(String qString, RetrievalModel model)
+	static ScoreList processQuery(String qString, String qId, RetrievalModel model)
 			throws IOException {
 
-		Qry q = parseQuery(qString, model);
+		boolean expansion = parameters.containsKey("fb") && parameters.get("fb").equals("true") ? true : false; 
+		Qry q = parseQuery(qString, qId, model, expansion);
 
 		// Optimize the query.  Remove query operators (except SCORE
 		// operators) that have only 1 argument. This improves efficiency
@@ -409,7 +488,7 @@ public class QryEval {
 
 		// Show the query that is evaluated
 
-		System.out.println("    --> " + q);
+		//System.out.println("    --> " + q);
 
 		if (q != null) {
 
@@ -442,13 +521,18 @@ public class QryEval {
 					throws IOException {
 
 		BufferedReader input = null;
-		BufferedReader initialRankingInput = null;
 
 		try {
 			String qLine = null;
 			input = new BufferedReader(new FileReader(queryFilePath));
 			if(parameters.containsKey("fbInitialRankingFile"))
 				initialRankingInput = new BufferedReader(new FileReader(parameters.get("fbInitialRankingFile")));
+			if(parameters.containsKey("fbExpansionQueryFile")){
+				outputExtendedQuery = true;
+				File expansionQueries = new File(parameters.get("fbExpansionQueryFile"));
+				expansionQueries.createNewFile();
+				expansionQueryFile = new BufferedWriter(new FileWriter(expansionQueries, true));
+			}
 			//  Each pass of the loop processes one query.
 			while ((qLine = input.readLine()) != null) {
 				int d = qLine.indexOf(':');
@@ -463,39 +547,11 @@ public class QryEval {
 				String qid = qLine.substring(0, d);
 				String query = qLine.substring(d + 1);
 
-				System.out.println("Query " + qLine);
+				//System.out.println("Query " + qLine);
 
 				ScoreList r = null;
 
-				/**
-				 * Expand query string if feedback is enabled
-				 */
-				if(parameters.containsKey("fb") && 
-						parameters.get("fb").equals("true") &&
-						parameters.containsKey("fbInitialRankingFile")){
-					
-					// Build the initial ranking docid to score map
-					int docsToRead = Math.min(topKResults, Integer.parseInt(parameters.get("fbDocs")));
-					HashMap<String, Double> initialRankingDocScores = new HashMap<String, Double>();
-					for(int i=0; i<docsToRead; i++){
-						String line = initialRankingInput.readLine();
-						String[] tokens = line.split("\t");
-						String externalDocId = tokens[2];
-						Double docIndriScore = Double.parseDouble(tokens[4]);
-						initialRankingDocScores.put(externalDocId, docIndriScore);
-					}
-					if(docsToRead < topKResults)
-						for(int i=0; i<topKResults - docsToRead; i++)		
-							initialRankingInput.readLine();
-					
-					String query_expanded = expandQuery(query, initialRankingDocScores);
-					Double originalWeight = Double.parseDouble(parameters.get("fbOrigWeight"));
-					Double expansionWeight = 1.0 - originalWeight;
-					query = "#wand (" + originalWeight.toString() + " " + query 
-							+ " " + expansionWeight.toString() + " " + query_expanded + ")";
-				}
-				
-				r = processQuery(query, model);
+				r = processQuery(query, qid, model);
 
 				if (r != null) {
 					r.sort();
@@ -507,6 +563,7 @@ public class QryEval {
 			ex.printStackTrace();
 		} finally {
 			input.close();
+			if(expansionQueryFile != null)	expansionQueryFile.close();
 		}
 	}
 
@@ -521,28 +578,53 @@ public class QryEval {
 	 * 			Expanded version of the query
 	 */
 	private static String expandQuery(String query, Map<String, Double> initialRankingDocScores) {
-		// TODO Auto-generated method stub
 		// Map of candidate expansion terms to scores
 		HashMap<String, Double> candidateTerms = new HashMap<String, Double>();
 		String expandedQuery = null;
+		HashMap<String, Long> corpusTermFrequencies = new HashMap<String, Long>();
+		
+		// collect all candidate terms first
+		for(String id: initialRankingDocScores.keySet()){
+			try {
+				int internalDocId = Idx.getInternalDocid(id);
+				TermVector forwardIndex = new TermVector(internalDocId, "body");
+				int uniqueStems = forwardIndex.stemsLength();
+				for(int i=1; i<uniqueStems; i++){
+					String candidateTerm = forwardIndex.stemString(i);
+					Long freq = forwardIndex.totalStemFreq(i);
+					if(candidateTerm.contains(".") || candidateTerm.contains(","))		continue;
+					candidateTerms.put(candidateTerm, 0.0);
+					corpusTermFrequencies.put(candidateTerm, freq);
+				}
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+		// compute scores for the candidate terms
 		for(String id: initialRankingDocScores.keySet()){
 			try {
 				int internalDocId = Idx.getInternalDocid(id);
 				Long corpusLen = Idx.getSumOfFieldLengths("body");
+				Double mu = Double.parseDouble(parameters.get("fbMu"));
 				TermVector forwardIndex = new TermVector(internalDocId, "body");
-				int uniqueStems = forwardIndex.stemsLength();
-				Integer docLen = Idx.getFieldLength("body", internalDocId);
-				HashSet<String> uniqueStemsSeen = new HashSet<String>();
-				for(int i=1; i<uniqueStems; i++){
-					String candidateTerm = forwardIndex.stemString(i);
-					if(uniqueStemsSeen.contains(candidateTerm))		continue;		// don't double count the score
-					uniqueStemsSeen.add(candidateTerm);
+				//int uniqueStems = forwardIndex.stemsLength();
+				Integer docLen = forwardIndex.positionsLength();
+				//HashSet<String> uniqueStemsSeen = new HashSet<String>();
+				
+				//for(int i=1; i<uniqueStems; i++){
+				for(String candidateTerm: candidateTerms.keySet()){
+					//String candidateTerm = forwardIndex.stemString(i);
+					//if(uniqueStemsSeen.contains(candidateTerm))		continue;		// don't double count the score
+					//uniqueStemsSeen.add(candidateTerm);
 					// compute score from this document
+					int idx = forwardIndex.indexOfStem(candidateTerm);
+					//if(idx == -1)	continue;
 					Double indriScore = initialRankingDocScores.get(id);
-					Long ctf = forwardIndex.totalStemFreq(i);
-					Integer tf = forwardIndex.stemFreq(i);
-					Integer df = forwardIndex.stemDf(i);
-					Double mu = Double.parseDouble(parameters.get("fbMu"));
+					//Long ctf = forwardIndex.totalStemFreq(idx);
+					Long ctf = corpusTermFrequencies.get(candidateTerm);
+					Integer tf = (idx > 0) ? forwardIndex.stemFreq(idx) : 0;
 					Double tGivenC = (double) ctf / (double) corpusLen;
 					Double tGivenD = ((double) tf + (mu * tGivenC)) / ((double) docLen + mu); 
 					Double idf = Math.log(1.0 / tGivenC);
@@ -554,6 +636,7 @@ public class QryEval {
 				}
 			} catch (Exception e) {
 				System.out.println("Could not read internal doc id or corpus length from the index");
+				e.printStackTrace();
 			}
 			
 			// Sort candidate terms by score
@@ -563,10 +646,13 @@ public class QryEval {
 			for(String term: candidateTerms.keySet())
 				termScorepairs.add(new TermScorePair(term, candidateTerms.get(term)));
 				
-			expandedQuery = "( ";
+			Stack<TermScorePair> topPairs = new Stack<TermScorePair>();
+			for(int i=0; i<numExpansionTerms; i++)	topPairs.add(termScorepairs.poll());
+
+			expandedQuery = "#WAND( ";
 			for(int i=0; i<numExpansionTerms; i++){
-				TermScorePair tsp = termScorepairs.poll();
-				expandedQuery += tsp.score.toString() + " " + tsp.term + " "; 
+				TermScorePair tsp = topPairs.pop();
+				expandedQuery += String.format( "%.4f", tsp.score ) + " " + tsp.term + " "; 
 			}
 			expandedQuery += ")";
 		}
