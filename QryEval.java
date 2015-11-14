@@ -115,6 +115,9 @@ public class QryEval {
 			String trainingQueries = parameters.get("letor:trainingQueryFile");
 			String trainingRels = parameters.get("letor:trainingQrelsFile");
 			String trainingFeatures = parameters.get("letor:trainingFeatureVectorsFile");
+			System.out.println("Training the letor svm rank model...");
+			((RetrievalModelLetor) model).train(trainingQueries, trainingRels, trainingFeatures);
+			System.out.println("Finished training.");
 		}
 		
 		processQueryFile(parameters.get("queryFilePath"), model);
@@ -172,7 +175,8 @@ public class QryEval {
 			String classifyPath = parameters.get("letor:svmRankClassifyPath");
 			String modelPath = parameters.get("letor:svmRankModelFile");
 			SVMRankModel svm = new SVMRankModel(c, learnPath, classifyPath, modelPath);
-			model = new RetrievalModelLetor(bm25model, indrimodel, svm, dfeats);
+			String pagerank = parameters.get("letor:pageRankFile");
+			model = new RetrievalModelLetor(bm25model, indrimodel, svm, dfeats, pagerank);
 		}
 		else {
 			throw new IllegalArgumentException
@@ -521,13 +525,14 @@ public class QryEval {
 			if (q.args.size () > 0) {		// Ignore empty queries
 
 				q.initialize (model);
-
+				
 				while (q.docIteratorHasMatch (model)) {
 					int docid = q.docIteratorGetMatch ();
 					double score = ((QrySop) q).getScore (model);
 					r.add (docid, score);
 					q.docIteratorAdvancePast (docid);
 				}
+				
 			}
 
 			return r;
@@ -535,13 +540,25 @@ public class QryEval {
 	}
 
 	/**
+	 * Process one query according to LETOR.
+	 * @param qString A string that contains a query.
+	 * @param model The retrieval model determines how matching and scoring is done.
+	 * @return Search results
+	 * @throws IOException Error accessing the index
+	 */
+	static ScoreList processQueryLetor(String qString, String qId, RetrievalModel model)
+			throws IOException {
+
+		return null;
+	}
+	
+	/**
 	 * Process the query file.
 	 * @param queryFilePath
 	 * @param model
 	 * @throws IOException Error accessing the Lucene index.
 	 */
-	static void processQueryFile(String queryFilePath,
-			RetrievalModel model)
+	static void processQueryFile(String queryFilePath, RetrievalModel model)
 					throws IOException {
 
 		BufferedReader input = null;
@@ -575,7 +592,10 @@ public class QryEval {
 
 				ScoreList r = null;
 
-				r = processQuery(query, qid, model);
+				if(model instanceof RetrievalModelLetor)
+					r = processQueryLetor(query, qid, model);
+				else
+					r = processQuery(query, qid, model);
 
 				if (r != null) {
 					r.sort();

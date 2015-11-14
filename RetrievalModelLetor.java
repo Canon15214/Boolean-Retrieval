@@ -38,7 +38,10 @@ public class RetrievalModelLetor extends RetrievalModel {
   }
   
   /**
-   * Train this model using supplied training file
+   * Train this model using supplied training params
    */
+  public void train(String queries, String relevances, String outputFeatures){
+	  
+  }
   
 }
