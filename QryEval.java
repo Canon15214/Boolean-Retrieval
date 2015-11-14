@@ -108,6 +108,15 @@ public class QryEval {
 		//  Perform experiments.
 		out = new File(parameters.get("trecEvalOutputPath"));
 		out.createNewFile();
+		
+		// if this is a letor model, train it first
+		if(model instanceof RetrievalModelLetor){
+			
+			String trainingQueries = parameters.get("letor:trainingQueryFile");
+			String trainingRels = parameters.get("letor:trainingQrelsFile");
+			String trainingFeatures = parameters.get("letor:trainingFeatureVectorsFile");
+		}
+		
 		processQueryFile(parameters.get("queryFilePath"), model);
 
 		//  Clean up.
@@ -143,6 +152,27 @@ public class QryEval {
 			int mu = Integer.parseInt(parameters.get("Indri:mu"));
 			double lambda = Double.parseDouble(parameters.get("Indri:lambda"));
 			model = new RetrievalModelIndri(mu, lambda);
+		}
+		else if(modelString.equals("letor")){
+			double k_1 = Double.parseDouble(parameters.get("BM25:k_1"));
+			double b = Double.parseDouble(parameters.get("BM25:b"));
+			double k_3 = Double.parseDouble(parameters.get("BM25:k_3"));
+			RetrievalModelBM25 bm25model = new RetrievalModelBM25(k_1, b, k_3);
+			int mu = Integer.parseInt(parameters.get("Indri:mu"));
+			double lambda = Double.parseDouble(parameters.get("Indri:lambda"));
+			RetrievalModelIndri indrimodel = new RetrievalModelIndri(mu, lambda);
+			String disabledFeats = parameters.get("letor:featureDisable");
+			List<Integer> dfeats = new ArrayList<Integer>();
+			if(disabledFeats.length() != 0){
+				String[] featNums = disabledFeats.split(",");
+				for(String n : featNums)	dfeats.add(Integer.parseInt(n));
+			}
+			double c = Double.parseDouble(parameters.get("letor:svmRankParamC"));
+			String learnPath = parameters.get("letor:svmRankLearnPath");
+			String classifyPath = parameters.get("letor:svmRankClassifyPath");
+			String modelPath = parameters.get("letor:svmRankModelFile");
+			SVMRankModel svm = new SVMRankModel(c, learnPath, classifyPath, modelPath);
+			model = new RetrievalModelLetor(bm25model, indrimodel, svm, dfeats);
 		}
 		else {
 			throw new IllegalArgumentException
@@ -185,11 +215,12 @@ public class QryEval {
 					String line = initialRankingInput.readLine();
 					String[] tokens = line.split("[ \t]");
 					String externalDocId = tokens[2];
+					//System.out.println(externalDocId);
 					Double docIndriScore = Double.parseDouble(tokens[4]);
 					initialRankingDocScores.put(externalDocId, docIndriScore);
 				}
 				int i=0;
-				while(initialRankingInput.readLine()!=null && i<(topKResults - docsToRead))		i++;
+				while(i<(topKResults - docsToRead) && initialRankingInput.readLine()!=null)		i++;
 			}
 			
 			else{

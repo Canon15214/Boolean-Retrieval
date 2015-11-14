@@ -22,12 +22,24 @@ public class Idx {
   //  --------------- Methods ---------------------------------------
 
   /**
+   *  Get the specified attribute from the specified document.
+   *  @param attributeName Name of attribute
+   *  @param docid The internal docid in the lucene index.
+   *  @return the attribute value
+   *  @throws IOException Error accessing the Lucene index.
+   */
+  public static String getAttribute (String attributeName, int docid) throws IOException {
+    Document d = Idx.INDEXREADER.document (docid);
+    return d.get (attributeName);
+  }
+
+  /**
    *  Get the number of documents that contain the specified field.
    *  @param fieldName the field name
    *  @return the number of documents that contain the field
    *  @throws IOException Error accessing the Lucene index.
    */
-  static int getDocCount (String fieldName) throws IOException {
+  public static int getDocCount (String fieldName) throws IOException {
     return Idx.INDEXREADER.getDocCount (fieldName);
   }
 
@@ -37,7 +49,7 @@ public class Idx {
    * @param iid The internal document id of the document.
    * @throws IOException Error accessing the Lucene index.
    */
-  static String getExternalDocid(int iid) throws IOException {
+  public static String getExternalDocid(int iid) throws IOException {
     Document d = Idx.INDEXREADER.document(iid);
     String eid = d.get("externalId");
     return eid;
@@ -45,12 +57,12 @@ public class Idx {
 
   /**
    *  Get the length of the specified field in the specified document.
-   *  @param fieldname Name of field to access lengths.
+   *  @param fieldName Name of field to access lengths.
    *  @param docid The internal docid in the lucene index.
    *  @return the length of the field, including stopword positions.
    *  @throws IOException Error accessing the Lucene index.
    */
-  static int getFieldLength (String fieldName, int docid) throws IOException {
+  public static int getFieldLength (String fieldName, int docid) throws IOException {
     return (int) Idx.DOCLENGTHSTORE.getDocLength (fieldName, docid);
   }
 
@@ -62,7 +74,7 @@ public class Idx {
    * @return iternal docid.
    * @throws Exception Could not read the internal document id from the index.
    */
-  static int getInternalDocid(String externalId)
+  public static int getInternalDocid(String externalId)
     throws Exception {
 
     Query q = new TermQuery(new Term("externalId", externalId));
