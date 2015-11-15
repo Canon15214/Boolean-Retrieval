@@ -63,6 +63,7 @@ public class QryEval {
 	private static final int topKResults = 100;
 	private static Map<String, String> parameters;
 	private static File out;
+	private static final int numBaseFeatures = 18;
 
 	// For Pseudo Relevance Feedback
 	private static BufferedReader initialRankingInput;
@@ -176,7 +177,7 @@ public class QryEval {
 			String modelPath = parameters.get("letor:svmRankModelFile");
 			SVMRankModel svm = new SVMRankModel(c, learnPath, classifyPath, modelPath);
 			String pagerank = parameters.get("letor:pageRankFile");
-			model = new RetrievalModelLetor(bm25model, indrimodel, svm, dfeats, pagerank);
+			model = new RetrievalModelLetor(bm25model, indrimodel, svm, dfeats, pagerank, numBaseFeatures);
 		}
 		else {
 			throw new IllegalArgumentException
