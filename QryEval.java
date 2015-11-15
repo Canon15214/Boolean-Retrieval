@@ -121,7 +121,7 @@ public class QryEval {
 			System.out.println("Finished training.");
 		}
 		
-		//processQueryFile(parameters.get("queryFilePath"), model);
+		processQueryFile(parameters.get("queryFilePath"), model);
 
 		//  Clean up.
 		timer.stop ();
