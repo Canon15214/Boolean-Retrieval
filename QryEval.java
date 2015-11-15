@@ -120,7 +120,7 @@ public class QryEval {
 			System.out.println("Finished training.");
 		}
 		
-		processQueryFile(parameters.get("queryFilePath"), model);
+		//processQueryFile(parameters.get("queryFilePath"), model);
 
 		//  Clean up.
 		timer.stop ();
@@ -164,9 +164,9 @@ public class QryEval {
 			int mu = Integer.parseInt(parameters.get("Indri:mu"));
 			double lambda = Double.parseDouble(parameters.get("Indri:lambda"));
 			RetrievalModelIndri indrimodel = new RetrievalModelIndri(mu, lambda);
-			String disabledFeats = parameters.get("letor:featureDisable");
 			List<Integer> dfeats = new ArrayList<Integer>();
-			if(disabledFeats.length() != 0){
+			if(parameters.containsKey("letor:featureDisable")){
+				String disabledFeats = parameters.get("letor:featureDisable");
 				String[] featNums = disabledFeats.split(",");
 				for(String n : featNums)	dfeats.add(Integer.parseInt(n));
 			}
@@ -199,7 +199,7 @@ public class QryEval {
 
 		//  Add a default query operator to every query. This is a tiny
 		//  bit of inefficiency, but it allows other code to assume
-		//  that the query will return document ids and scores.
+		//  that the query will return document IDs and scores.
 
 		String defaultOp = model.defaultQrySopName ();
 		String qString = defaultOp + "(" + queryString + ")";
@@ -548,8 +548,48 @@ public class QryEval {
 	 */
 	static ScoreList processQueryLetor(String qString, String qId, RetrievalModel model)
 			throws IOException {
+		boolean expansion = parameters.containsKey("fb") && parameters.get("fb").equals("true") ? true : false; 
+		Qry q = parseQuery(qString, qId, model, expansion);
 
-		return null;
+		// Optimize the query.  Remove query operators (except SCORE
+		// operators) that have only 1 argument. This improves efficiency
+		// and readability a bit.
+
+		if (q.args.size() == 1) {
+			Qry q_0 = q.args.get(0);
+
+			if (q_0 instanceof QrySop) {
+				q = q_0;
+			}
+		}
+
+		while ((q != null) && parseQueryCleanup(q))
+			;
+
+		// Show the query that is evaluated
+
+		//System.out.println("    --> " + q);
+
+		if (q != null) {
+
+			ScoreList r = new ScoreList ();
+
+			if (q.args.size () > 0) {		// Ignore empty queries
+
+				q.initialize (model);
+				
+				while (q.docIteratorHasMatch (model)) {
+					int docid = q.docIteratorGetMatch ();
+					double score = ((QrySop) q).getScore (model);
+					r.add (docid, score);
+					q.docIteratorAdvancePast (docid);
+				}
+				
+			}
+
+			return r;
+		} else	return null;
+
 	}
 	
 	/**
