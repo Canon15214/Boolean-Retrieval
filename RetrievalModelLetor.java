@@ -31,6 +31,7 @@ public class RetrievalModelLetor extends RetrievalModel {
 	private String pageRankFile;
 	private HashMap<String, Double> pageRanks;
 	private int numBaseFeatures; // this is the maximum number of features
+	private static final int initialTestingDocs = 100;
 
 	/**
 	 * Custom constructor
@@ -44,6 +45,11 @@ public class RetrievalModelLetor extends RetrievalModel {
 		this.pageRankFile = pagerank;
 		this.numBaseFeatures = numBaseFeatures;
 		buildPageRanks();
+	}
+	
+	// get the bm25 model
+	public RetrievalModelBM25 getBM25Model(){
+		return this.bm25model;
 	}
 
 	private void buildPageRanks(){
@@ -105,7 +111,8 @@ public class RetrievalModelLetor extends RetrievalModel {
 					Integer relevanceScore = Integer.parseInt(rTokens[3]); 
 
 					// get unnormalized for query-document pair
-					buildFeatures(featureVector, externalDocId, relevanceScore, queryTerms, featureMax, featureMin);
+					buildFeatures(featureVector, externalDocId, queryTerms, 
+										featureMax, featureMin);
 					docFeatures.put(externalDocId, featureVector);
 					docRelevances.put(externalDocId, relevanceScore);
 					rLine = relevanceReader.readLine();
@@ -138,6 +145,67 @@ public class RetrievalModelLetor extends RetrievalModel {
 	/**
 	 * Classify the testing data
 	 */
+	public ScoreList classify(String queryString, ScoreList initialRanking, 
+								String testFeaturesFile, String testScoresFile){
+		ScoreList result = new ScoreList();
+		try {
+			BufferedWriter testFeatures = new BufferedWriter(new FileWriter(testFeaturesFile, true));
+			// generate the testing features
+			initialRanking.sort();
+			Double[] featureMax = new Double[numBaseFeatures];
+			Double[] featureMin = new Double[numBaseFeatures];
+			for(int i=0; i<numBaseFeatures; i++){
+				featureMax[i] = Double.MIN_VALUE;
+				featureMin[i] = Double.MAX_VALUE;
+			}
+			HashMap<String, Double[]> docFeatures = new HashMap<String, Double[]>();
+			String[] qTokens = queryString.split(":");
+			Integer qId = Integer.parseInt(qTokens[0]);
+			String qString = qTokens[1];
+			String[] queryTerms = QryEval.tokenizeQuery(qString);
+			
+			// seems that the query "40:michworks" produces only 15 documents in the initial ranking
+			int numDocs = Math.min(initialRanking.size(), initialTestingDocs);
+			for(int j=0; j<numDocs; j++){
+				if(j >= initialRanking.size())	System.out.println(queryString);
+				int internalDocId = initialRanking.getDocid(j);
+				String externalDocId = Idx.getExternalDocid(internalDocId);
+				Double[] featureVector = new Double[numBaseFeatures];
+
+				// get unnormalized features for this query-document pair
+				buildFeatures(featureVector, externalDocId, queryTerms, 
+								featureMax, featureMin);
+				docFeatures.put(externalDocId, featureVector); 
+			}
+			
+			for(String doc: docFeatures.keySet()){
+				Double[] fVec = docFeatures.get(doc);
+				normalizeFeatures(fVec, featureMax, featureMin);
+				printFeatures(testFeatures, 0, qId, fVec, doc);
+			}
+			
+			testFeatures.close();
+
+			// produce svm rank score for the test data
+			svmrankmodel.score(testFeaturesFile, testScoresFile);
+			
+			// read the test scores file into the result scorelist
+			BufferedReader testScoresReader = new BufferedReader(new FileReader(testScoresFile));
+			String line;
+			for(int i=0; i<numDocs; i++){
+				int internalDocId = initialRanking.getDocid(i);
+				line = testScoresReader.readLine();
+				double score = Double.parseDouble(line);
+				result.add(internalDocId, score);
+			}
+			testScoresReader.close();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return result;
+	}
 
 	private void printFeatures(BufferedWriter output, Integer relevance,
 			Integer qId, Double[] fVec, String doc) {
@@ -172,7 +240,7 @@ public class RetrievalModelLetor extends RetrievalModel {
 	/*
 	 * This is the crucial part generating the feature vectors
 	 */
-	private void buildFeatures(Double[] featureVector, String externalDocId, Integer relevanceScore,
+	private void buildFeatures(Double[] featureVector, String externalDocId,
 			String[] queryTerms, Double[] featureMax, Double[] featureMin) {
 
 		try {

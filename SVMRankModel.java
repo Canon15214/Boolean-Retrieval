@@ -53,10 +53,40 @@ public class SVMRankModel {
 		    }
 	    
 	   } catch (IOException | InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
+	}
+	
+	// generate scores for the testing data
+	public void score(String testFeaturesFile, String testScoresFile) throws Exception{
+	    try {
+	    	Process cmdProc = Runtime.getRuntime().exec(
+	    	        new String[] { classifyBinaryPath, testFeaturesFile, modelPath, testScoresFile });
+		    // The stdout/stderr consuming code prevents the OS from running out 
+		    // of output buffer space and stalling.
+
+		    // consume stdout and print it out for debugging purposes
+		    BufferedReader stdoutReader = new BufferedReader(
+		        new InputStreamReader(cmdProc.getInputStream()));
+		    // consume stderr and print it for debugging purposes
+		    BufferedReader stderrReader = new BufferedReader(
+		        new InputStreamReader(cmdProc.getErrorStream()));
+		    String line;
+			while ((line = stdoutReader.readLine()) != null)		System.out.println(line);
+		    while ((line = stderrReader.readLine()) != null)		System.out.println(line);
+
+		    // get the return value from the executable. 0 means success, non-zero 
+		    // indicates a problem
+		    int retValue = cmdProc.waitFor();
+		    if (retValue != 0) {
+		      throw new Exception("SVM Rank crashed.");
+		    }
+	    
+	   } catch (IOException | InterruptedException e) {
+			e.printStackTrace();
+		}
+		
 	}
 
 }

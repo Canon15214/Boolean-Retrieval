@@ -547,50 +547,17 @@ public class QryEval {
 	 * @return Search results
 	 * @throws IOException Error accessing the index
 	 */
-	static ScoreList processQueryLetor(String qString, String qId, RetrievalModel model)
+	static ScoreList processQueryLetor(String qString, String qId, RetrievalModelLetor model)
 			throws IOException {
-		boolean expansion = parameters.containsKey("fb") && parameters.get("fb").equals("true") ? true : false; 
-		Qry q = parseQuery(qString, qId, model, expansion);
-
-		// Optimize the query.  Remove query operators (except SCORE
-		// operators) that have only 1 argument. This improves efficiency
-		// and readability a bit.
-
-		if (q.args.size() == 1) {
-			Qry q_0 = q.args.get(0);
-
-			if (q_0 instanceof QrySop) {
-				q = q_0;
-			}
-		}
-
-		while ((q != null) && parseQueryCleanup(q))
-			;
-
-		// Show the query that is evaluated
-
-		//System.out.println("    --> " + q);
-
-		if (q != null) {
-
-			ScoreList r = new ScoreList ();
-
-			if (q.args.size () > 0) {		// Ignore empty queries
-
-				q.initialize (model);
-				
-				while (q.docIteratorHasMatch (model)) {
-					int docid = q.docIteratorGetMatch ();
-					double score = ((QrySop) q).getScore (model);
-					r.add (docid, score);
-					q.docIteratorAdvancePast (docid);
-				}
-				
-			}
-
-			return r;
-		} else	return null;
-
+		
+		// run BM25 to create an initial ranking on body field
+		ScoreList initialRanking = processQuery(qString, qId, model.getBM25Model());
+		// do the reranking using Rank SVM
+		String testingFeaturesFile = parameters.get("letor:testingFeatureVectorsFile");
+		String testingScoresFile = parameters.get("letor:testingDocumentScores");
+		ScoreList rescoredList = model.classify(qId + ":" + qString, initialRanking, 
+												testingFeaturesFile, testingScoresFile);
+		return rescoredList;
 	}
 	
 	/**
@@ -634,7 +601,7 @@ public class QryEval {
 				ScoreList r = null;
 
 				if(model instanceof RetrievalModelLetor)
-					r = processQueryLetor(query, qid, model);
+					r = processQueryLetor(query, qid, (RetrievalModelLetor) model);
 				else
 					r = processQuery(query, qid, model);
 
