@@ -87,7 +87,6 @@ public class RetrievalModelLetor extends RetrievalModel {
 			BufferedWriter output = new BufferedWriter(new FileWriter(outputFeatures, true));
 			HashMap<String, Double[]> docFeatures = new HashMap<String, Double[]>();
 			HashMap<String, Integer> docRelevances = new HashMap<String, Integer>();
-
 			String qLine = null;
 			String rLine = relevanceReader.readLine();
 			while((qLine = queryReader.readLine())!=null){
@@ -106,7 +105,7 @@ public class RetrievalModelLetor extends RetrievalModel {
 					Double[] featureVector = new Double[numBaseFeatures];
 					String[] rTokens = rLine.split(" ");
 					Integer rId = Integer.parseInt(rTokens[0]);
-					if(rId != qId)	break;
+					if(!rId.equals(qId))		break;
 					String externalDocId = rTokens[2];
 					Integer relevanceScore = Integer.parseInt(rTokens[3]); 
 
@@ -117,14 +116,13 @@ public class RetrievalModelLetor extends RetrievalModel {
 					docRelevances.put(externalDocId, relevanceScore);
 					rLine = relevanceReader.readLine();
 				}
-
+				
 				for(String doc: docFeatures.keySet()){
 					Double[] fVec = docFeatures.get(doc);
 					Integer relevance = docRelevances.get(doc);
 					normalizeFeatures(fVec, featureMax, featureMin);
 					printFeatures(output, relevance, qId, fVec, doc);
 				}
-
 				docFeatures.clear();
 				docRelevances.clear();
 			}
@@ -211,11 +209,10 @@ public class RetrievalModelLetor extends RetrievalModel {
 			Integer qId, Double[] fVec, String doc) {
 		try {
 			String result = relevance + " qid:" + qId + " ";
-			int featuresIndex = 1;
 			for(int i=0; i<fVec.length; i++){
 				if(fVec[i] != Double.MIN_VALUE){
-					result += featuresIndex + ":" + String.format( "%.2f", fVec[i]) + " ";
-					featuresIndex += 1;
+					//result += featuresIndex + ":" + String.format( "%.2f", fVec[i]) + " ";
+					result += (i+1) + ":" + fVec[i] + " ";
 				}
 			}
 			result += "# " + doc;
@@ -282,12 +279,11 @@ public class RetrievalModelLetor extends RetrievalModel {
 				if(featureVector[3] < featureMin[3])	featureMin[3] = featureVector[3];
 			}
 
-			Double[] contentFeatures = new Double[]{0.0, 0.0, 0.0};
-
 			// content features for the different fields
 			String[] fields = new String[]{"body", "title", "url", "inlink"};
 			for(int i=0; i<fields.length; i++){
 				int start = 3*i+4;
+				Double[] contentFeatures = new Double[]{0.0, 0.0, 0.0};
 				getContentFeatures(contentFeatures, queryTerms, internalDocId, fields[i]);
 				featureVector[start] = contentFeatures[0];
 				featureVector[start+1] = contentFeatures[1];
@@ -324,7 +320,7 @@ public class RetrievalModelLetor extends RetrievalModel {
 	private void getContentFeatures(Double[] contentFeats, String[] queryTerms, 
 			int internalDocId, String field) {
 		// contentFeats contain scores for bm25, indri and term overlap
-		try {		  
+		try {
 			TermVector forwardIndex = new TermVector(internalDocId, field);
 			int queryTermMatches = 0;
 			HashMap<String, Double> queryTermFreqs = new HashMap<String, Double>();
@@ -349,56 +345,41 @@ public class RetrievalModelLetor extends RetrievalModel {
 				for(int i=1; i<numStems; i++){
 					String stem = forwardIndex.stemString(i);
 					boolean termMatch = queryTermFreqs.containsKey(stem);
-
 					if(termMatch){
 						queryTermMatches++;
 						// compute the BM25 score
 						double qtf = queryTermFreqs.get(stem);
 						contentFeats[0] += getBM25Score(forwardIndex, field, qtf, i);
 						// compute the Indri score
-						contentFeats[1] *= Math.pow(getIndriScore(forwardIndex, field, i), power);	
+						contentFeats[1] *= Math.pow(getIndriScore(forwardIndex, field, stem, i), power);	
 						queryTermFreqs.remove(stem);
 					}
-
 				}
-
-				// Is this necessary ??
-				// add default scores for query terms not present in document
-				/*
-			for(String qTerm : queryTermFreqs.keySet()){
-				// bm25 default
-				double df = (double) forwardIndex.stemDf(idx);		// ??
-				double tf = 0.0;
-				double qtf = queryTermFreqs.get(qTerm);
-				double rsj = Math.max(0.0, Math.log((N - df + 0.5) / (df + 0.5)));
-				double tf_weight = tf / (tf + k_1*(1 - b + (b * doclen / avg_doclen)));
-				double user_weight = (k_3 + 1) * qtf / (k_3 + qtf);
-				bm25 += rsj * tf_weight * user_weight;
-				// indri default
-				double ctf = (double) forwardIndex.totalStemFreq(idx);	
-				double score = ((1.0 - lambda) * (tf + (mu * ctf / corpuslen)) / (doclen + mu)) + 
-							(lambda * ctf / corpuslen);
-				indri *= Math.pow(score, power);
-			}
-				 */
+				
+				// default score for indri, indicate it through negative index value
+				// default scores will be 0.0 for bm25
+				for(String qTerm: queryTermFreqs.keySet()){
+					contentFeats[1] *= Math.pow(getIndriScore(forwardIndex, field, qTerm, -1), power);
+				}
 			}
 
 			// compute the term overlap score
 			contentFeats[2] = (double) queryTermMatches / (double) queryTerms.length;
-
+			
 		} catch (IOException e) {
 			System.out.println("Could not build content features.");
 		}
 
 	}
 
-	private double getIndriScore(TermVector forwardIndex, String field, int idx) {
+	private double getIndriScore(TermVector forwardIndex, String field, String term, int idx) {
 		double score = 0.0;
 		try {
-			double ctf = (double) forwardIndex.totalStemFreq(idx);
+			InvList invList = new InvList(term, field);
+			double ctf = (double) invList.ctf;
 			double lambda = this.indrimodel.lambda;
 			double mu = (double) this.indrimodel.mu;
-			double tf = (double) forwardIndex.stemFreq(idx);
+			double tf = (idx > 0) ? (double) forwardIndex.stemFreq(idx) : 0.0;
 			double corpuslen = (double) Idx.getSumOfFieldLengths(field);
 			double doclen = (double) forwardIndex.positionsLength();
 			score = ((1.0 - lambda) * (tf + (mu * ctf / corpuslen)) / (doclen + mu)) +
